@@ -213,8 +213,8 @@ struct MainComponent::Impl : private juce::Timer {
 			});
 		});
 		menu.addItem(GETTEXT("Reset All Tuning Settings to Default"), [this] {
-			setProperty(PROP_NAME(tuning_scl_file), nullptr);
-			setProperty(PROP_NAME(tuning_kbm_file), nullptr);
+			setProperty(PROP_NAME(tuning_scl_file), "");
+			setProperty(PROP_NAME(tuning_kbm_file), "");
 		});
 #ifdef WITH_MTS_ESP
 		do {
