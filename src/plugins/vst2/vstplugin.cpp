@@ -47,8 +47,23 @@
 #define effGetMidiKeyName       66
 #define effBeginLoadBank        75
 #define effFlagsProgramChunks   (1 << 5)
+#define kVstSysexType 6
 
 #define MIDI_BUFFER_SIZE 4096
+
+struct VstSysexEvent
+{
+	int type;
+	int byteSize;
+	int deltaSamples;
+	int flags;
+	int length;
+	void *reserved1;
+	void *data;
+	void *reserved2;
+};
+
+static thread_local bool isRenderThread;
 
 struct Plugin final : public Parameter::Observer
 {
@@ -197,6 +212,21 @@ static intptr_t dispatcher(AEffect *effect, int opcode, int index, intptr_t val,
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif
+				if (event->type == kVstSysexType && event->byteSize == sizeof(VstSysexEvent)) {
+					VstSysexEvent *sysex = (VstSysexEvent *)event;
+					if (bytesCopied + sysex->length > MIDI_BUFFER_SIZE) {
+						fprintf(stderr, "amsynth: midi buffer overflow\n");
+						continue;
+					}
+					amsynth_midi_event_t midi_event;
+					midi_event.offset_frames = event->deltaSamples;
+					midi_event.length = sysex->length;
+					midi_event.buffer = (unsigned char *)memcpy(plugin->midiBuffer + bytesCopied, sysex->data, sysex->length);
+					plugin->midiEvents.push_back(midi_event);
+					bytesCopied += sysex->length;
+					continue;
+				}
+
 				if (event->type != kVstMidiType) {
 					continue;
 				}

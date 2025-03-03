@@ -31,6 +31,10 @@
 #include <cstdio>
 #include <cstring>
 
+#ifdef WITH_MTS_ESP
+#include "MTS-ESP/Client/libMTSClient.h"
+#endif
+
 
 Synthesizer::Synthesizer()
 : _sampleRate(-1)
@@ -264,15 +268,20 @@ void Synthesizer::process(unsigned int nframes,
 		assert(nullptr == "sample rate has not been set");
 		return;
 	}
+
 	if (needsResetAllVoices_) {
 		needsResetAllVoices_ = false;
 		_voiceAllocationUnit->resetAllVoices();
 	}
+
 	std::vector<amsynth_midi_event_t>::const_iterator event = midi_in.begin();
 	unsigned frames_left_in_buffer = nframes, frame_index = 0;
 	while (frames_left_in_buffer) {
 		while (event != midi_in.end() && event->offset_frames <= frame_index) {
 			_midiController->HandleMidiData(event->buffer, event->length);
+#ifdef WITH_MTS_ESP
+			MTS_ParseMIDIDataU(_voiceAllocationUnit->mtsClient, event->buffer, event->length);
+#endif
 			++event;
 		}
 		
@@ -289,9 +298,14 @@ void Synthesizer::process(unsigned int nframes,
 		frame_index += block_size_frames;
 		frames_left_in_buffer -= block_size_frames;
 	}
+
 	while (event != midi_in.end()) {
 		_midiController->HandleMidiData(event->buffer, event->length);
+#ifdef WITH_MTS_ESP
+		MTS_ParseMIDIDataU(_voiceAllocationUnit->mtsClient, event->buffer, event->length);
+#endif
 		++event;
 	}
+
 	_midiController->generateMidiOutput(midi_out);
 }

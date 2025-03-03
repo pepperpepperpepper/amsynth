@@ -313,13 +313,27 @@ public:
 
 	OSStatus MIDIEvent(UInt32 inStatus, UInt32 inData1, UInt32 inData2, UInt32 inOffsetSampleFrame) override
 	{
-		if (_midiBufferPtr + 3 > _midiBuffer.data() + _midiBuffer.size())
+		if (_midiBufferPtr + 3 > _midiBuffer.data() + _midiBuffer.size()) {
+			fprintf(stderr, "amsynth: midi buffer overflow\n");
 			return kAudioUnitErr_TooManyFramesToProcess;
+		}
 		_midiEvents.push_back((amsynth_midi_event_t) {inOffsetSampleFrame, 3, _midiBufferPtr});
 		_midiBufferPtr[0] = inStatus;
 		_midiBufferPtr[1] = inData1;
 		_midiBufferPtr[2] = inData2;
 		_midiBufferPtr += 3;
+		return noErr;
+	}
+
+	OSStatus SysEx(const UInt8 *inData, UInt32 inLength) override
+	{
+		if (_midiBufferPtr + inLength > _midiBuffer.data() + _midiBuffer.size()) {
+			fprintf(stderr, "amsynth: midi buffer overflow\n");
+			return kAudioUnitErr_TooManyFramesToProcess;
+		}
+		_midiEvents.push_back((amsynth_midi_event_t) {0, inLength, _midiBufferPtr});
+		memcpy(_midiBufferPtr, inData, inLength);
+		_midiBufferPtr += inLength;
 		return noErr;
 	}
 
