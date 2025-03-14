@@ -11,8 +11,10 @@ codesign --remove-signature dstroot/Library/Audio/Plug-Ins/VST/amsynth.vst
 VERSION=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' dstroot/Library/Audio/Plug-Ins/Components/amsynth.component/Contents/Info.plist)
 
 mkdir -p "dstroot/Library/Application Support/amsynth/skins/default"
-cp -cR ../data/banks "dstroot/Library/Application Support/amsynth/"
 cp -c ../data/skins/default/layout.ini ../data/skins/default/*.png "dstroot/Library/Application Support/amsynth/skins/default/"
+
+mkdir -p "dstroot/Library/Audio/Presets/Nick Dowell/amsynth"
+cp -c ../data/banks/*.bank "dstroot/Library/Audio/Presets/Nick Dowell/amsynth/"
 
 mkdir -p build/Packages
 
@@ -27,8 +29,7 @@ pkgbuild build/Packages/vst.pkg \
 	--scripts "pkg/scripts/vst"
 
 pkgbuild build/Packages/data.pkg \
-	--root "dstroot/Library/Application Support/amsynth" \
-	--install-location "/Library/Application Support/amsynth" \
+	--root "dstroot" \
 	--identifier com.nickdowell.amsynth.data \
 	--version "${VERSION}" \
 

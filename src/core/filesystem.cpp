@@ -88,13 +88,13 @@ filesystem::filesystem()
         std::cerr << "Error: could not create " << default_bank << std::endl;
     }
 #elif defined(__APPLE__)
-	factory_banks = "/Library/Application Support/amsynth/banks";
+	factory_banks = "/Library/Audio/Presets/Nick Dowell/amsynth";
 	skins = "/Library/Application Support/amsynth/skins";
 	auto prefs = std::string(getenv("HOME")) + "/Library/Preferences/amsynth";
 	config = prefs + "/config";
 	controllers = prefs + "/controllers";
-	user_banks = prefs + "/banks";
-	default_bank = user_banks + "/default";
+	user_banks = std::string(getenv("HOME")) + factory_banks;
+	default_bank = user_banks + "/default.bank";
 	create_dir(prefs);
 	create_dir(user_banks);
 	if (!exists(default_bank)) {
