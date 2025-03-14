@@ -25,6 +25,7 @@
 #include "core/controls.h"
 #include "core/types.h"
 
+#include <cstring>
 #include <map>
 #include <string>
 #include <vector>
