@@ -119,4 +119,44 @@ private:
 	Properties propertyStore_;
 };
 
+struct MidiInputAdaptor
+{
+	MidiInputAdaptor()
+	: buffer((unsigned char *)malloc(kBufferSize))
+	, back(buffer)
+	{
+		events.reserve(kBufferSize / 3);
+	}
+
+	~MidiInputAdaptor()
+	{
+		free(buffer);
+	}
+
+	void append(int offset, void *data, int length)
+	{
+		if (back - buffer + length > kBufferSize) {
+			fprintf(stderr, "amsynth: midi buffer overflow\n");
+			return;
+		}
+
+		amsynth_midi_event_t event;
+		event.offset_frames = offset;
+		event.length = length;
+		event.buffer = (unsigned char *)memcpy(back += length, data, length);
+		events.push_back(event);
+	}
+
+	void clear()
+	{
+		events.clear();
+		back = buffer;
+	}
+
+	static const int kBufferSize = 4096;
+	unsigned char *buffer {nullptr};
+	unsigned char *back {nullptr};
+	std::vector<amsynth_midi_event_t> events;
+};
+
 #endif /* defined(__amsynth__Synthesizer__) */

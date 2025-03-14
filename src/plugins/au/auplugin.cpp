@@ -31,7 +31,6 @@
 #include <vector>
 
 #define kPropertiesKey CFSTR("_properties")
-#define MIDI_BUFFER_SIZE 4096
 
 class AmsynthAU : public MusicDeviceBase, public Parameter::Observer
 {
@@ -62,9 +61,7 @@ public:
 		_synth.setSampleRate(GetOutput(0)->GetStreamFormat().mSampleRate);
 		_synth._presetController->getCurrentPreset().addObserver(this, false);
 
-		_midiBuffer.resize(MIDI_BUFFER_SIZE);
-		_midiBufferPtr = _midiBuffer.data();
-		_midiEvents.reserve(MIDI_BUFFER_SIZE / 3);
+		_midiInput.clear();
 
 		return noErr;
 	}
@@ -304,44 +301,28 @@ public:
 			return kAudioUnitErr_FormatNotSupported;
 
 		std::vector<amsynth_midi_cc_t> midiOut;
-		_synth.process(inNumberFrames, _midiEvents, midiOut, (float *)outputBufferList.mBuffers[0].mData, (float *)outputBufferList.mBuffers[1].mData);
-		_midiBufferPtr = _midiBuffer.data();
-		_midiEvents.clear();
+		_synth.process(inNumberFrames, _midiInput.events, midiOut, (float *)outputBufferList.mBuffers[0].mData, (float *)outputBufferList.mBuffers[1].mData);
+		_midiInput.events.clear();
 
 		return noErr;
 	}
 
 	OSStatus MIDIEvent(UInt32 inStatus, UInt32 inData1, UInt32 inData2, UInt32 inOffsetSampleFrame) override
 	{
-		if (_midiBufferPtr + 3 > _midiBuffer.data() + _midiBuffer.size()) {
-			fprintf(stderr, "amsynth: midi buffer overflow\n");
-			return kAudioUnitErr_TooManyFramesToProcess;
-		}
-		_midiEvents.push_back((amsynth_midi_event_t) {inOffsetSampleFrame, 3, _midiBufferPtr});
-		_midiBufferPtr[0] = inStatus;
-		_midiBufferPtr[1] = inData1;
-		_midiBufferPtr[2] = inData2;
-		_midiBufferPtr += 3;
+		uint8_t tmp[3] = {(uint8_t)inStatus, (uint8_t)inData1, (uint8_t)inData2};
+		_midiInput.append(inOffsetSampleFrame, tmp, 3);
 		return noErr;
 	}
 
 	OSStatus SysEx(const UInt8 *inData, UInt32 inLength) override
 	{
-		if (_midiBufferPtr + inLength > _midiBuffer.data() + _midiBuffer.size()) {
-			fprintf(stderr, "amsynth: midi buffer overflow\n");
-			return kAudioUnitErr_TooManyFramesToProcess;
-		}
-		_midiEvents.push_back((amsynth_midi_event_t) {0, inLength, _midiBufferPtr});
-		memcpy(_midiBufferPtr, inData, inLength);
-		_midiBufferPtr += inLength;
+		_midiInput.append(0, (void *)inData, inLength);
 		return noErr;
 	}
 
 private:
 	Synthesizer _synth;
-	unsigned char *_midiBufferPtr;
-	std::vector<uint8_t> _midiBuffer;
-	std::vector<amsynth_midi_event_t> _midiEvents;
+	MidiInputAdaptor _midiInput;
 };
 
 AUDIOCOMPONENT_ENTRY(AUMusicDeviceFactory, AmsynthAU)

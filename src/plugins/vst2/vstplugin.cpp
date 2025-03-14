@@ -49,8 +49,6 @@
 #define effFlagsProgramChunks   (1 << 5)
 #define kVstSysexType 6
 
-#define MIDI_BUFFER_SIZE 4096
-
 struct VstSysexEvent
 {
 	int type;
@@ -72,14 +70,12 @@ struct Plugin final : public Parameter::Observer
 	{
 		audioMaster = master;
 		synthesizer = new Synthesizer;
-		midiBuffer = (unsigned char *)malloc(MIDI_BUFFER_SIZE);
 		synthesizer->_presetController->getCurrentPreset().addObserver(this, false);
 	}
 
 	~Plugin()
 	{ 
 		delete synthesizer;
-		free(midiBuffer);
 	}
 
 	void parameterDidChange(const Parameter &parameter) override
@@ -103,8 +99,7 @@ struct Plugin final : public Parameter::Observer
 	AEffect *effect;
 	audioMasterCallback audioMaster;
 	Synthesizer *synthesizer;
-	unsigned char *midiBuffer;
-	std::vector<amsynth_midi_event_t> midiEvents;
+	MidiInputAdaptor midiInput;
 	std::string chunk;
 	JuceIntegration juceIntegration;
 	std::unique_ptr<MainComponent> gui;
@@ -199,10 +194,8 @@ static intptr_t dispatcher(AEffect *effect, int opcode, int index, intptr_t val,
 		case effProcessEvents: {
 			VstEvents *events = (VstEvents *)ptr;
 
-			plugin->midiEvents.clear();
-			memset(plugin->midiBuffer, 0, MIDI_BUFFER_SIZE);
-			size_t bytesCopied = 0;
-			
+			plugin->midiInput.clear();
+
 			for (int32_t i=0; i<events->numEvents; i++) {
 #ifdef __GNUC__
 #pragma GCC diagnostic push
@@ -214,16 +207,7 @@ static intptr_t dispatcher(AEffect *effect, int opcode, int index, intptr_t val,
 #endif
 				if (event->type == kVstSysexType && event->byteSize == sizeof(VstSysexEvent)) {
 					VstSysexEvent *sysex = (VstSysexEvent *)event;
-					if (bytesCopied + sysex->length > MIDI_BUFFER_SIZE) {
-						fprintf(stderr, "amsynth: midi buffer overflow\n");
-						continue;
-					}
-					amsynth_midi_event_t midi_event;
-					midi_event.offset_frames = event->deltaSamples;
-					midi_event.length = sysex->length;
-					midi_event.buffer = (unsigned char *)memcpy(plugin->midiBuffer + bytesCopied, sysex->data, sysex->length);
-					plugin->midiEvents.push_back(midi_event);
-					bytesCopied += sysex->length;
+					plugin->midiInput.append(event->deltaSamples, sysex->data, sysex->length);
 					continue;
 				}
 
@@ -231,39 +215,10 @@ static intptr_t dispatcher(AEffect *effect, int opcode, int index, intptr_t val,
 					continue;
 				}
 
-				unsigned char *msgData = (unsigned char *)event->midiData;
-
-				int msgLength = 0;
-				switch (msgData[0] & 0xF0) {
-				case MIDI_STATUS_NOTE_OFF:
-				case MIDI_STATUS_NOTE_ON:
-				case MIDI_STATUS_NOTE_PRESSURE:
-				case MIDI_STATUS_CONTROLLER:
-				case MIDI_STATUS_PITCH_WHEEL:
-					msgLength = 3;
-					break;
-				case MIDI_STATUS_PROGRAM_CHANGE:
-				case MIDI_STATUS_CHANNEL_PRESSURE:
-					msgLength = 2;
-					break;
-				case 0xF0: // System message
-					continue; // Ignore
-				default:
-					fprintf(stderr, "amsynth: bad status byte: %02x\n", msgData[0]);
-					continue; // Ignore
-				}
-
-				if (bytesCopied + msgLength > MIDI_BUFFER_SIZE) {
-					fprintf(stderr, "amsynth: midi buffer overflow\n");
-					break;
-				}
-
-				amsynth_midi_event_t midi_event;
-				midi_event.offset_frames = event->deltaSamples;
-				midi_event.length = msgLength;
-				midi_event.buffer = (unsigned char *)memcpy(plugin->midiBuffer + bytesCopied, msgData, msgLength);
-				plugin->midiEvents.push_back(midi_event);
-				bytesCopied += msgLength;
+				static int lengths[8] = {3, 3, 3, 3, 2, 2, 3, 0};
+				int pos = ((event->midiData[0] & 0xF0) - 0x80) >> 4;
+				int msgLength = lengths[pos];
+				plugin->midiInput.append(event->deltaSamples, (void *)event->midiData, msgLength);
 			}
 			
 			return 1;
@@ -331,8 +286,8 @@ static void process(AEffect *effect, float **inputs, float **outputs, int numSam
 	(void)inputs;
 	Plugin *plugin = (Plugin *)effect->ptr3;
 	std::vector<amsynth_midi_cc_t> midi_out;
-	plugin->synthesizer->process(numSampleFrames, plugin->midiEvents, midi_out, outputs[0], outputs[1]);
-	plugin->midiEvents.clear();
+	plugin->synthesizer->process(numSampleFrames, plugin->midiInput.events, midi_out, outputs[0], outputs[1]);
+	plugin->midiInput.clear();
 }
 
 static void processReplacing(AEffect *effect, float **inputs, float **outputs, int numSampleFrames)
@@ -340,8 +295,8 @@ static void processReplacing(AEffect *effect, float **inputs, float **outputs, i
 	(void)inputs;
 	Plugin *plugin = (Plugin *)effect->ptr3;
 	std::vector<amsynth_midi_cc_t> midi_out;
-	plugin->synthesizer->process(numSampleFrames, plugin->midiEvents, midi_out, outputs[0], outputs[1]);
-	plugin->midiEvents.clear();
+	plugin->synthesizer->process(numSampleFrames, plugin->midiInput.events, midi_out, outputs[0], outputs[1]);
+	plugin->midiInput.clear();
 }
 
 static void setParameter(AEffect *effect, int i, float f)
