@@ -47,11 +47,9 @@ static DSSI_Descriptor *	s_dssiDescriptor   = nullptr;
 static PresetController *	s_presetController = nullptr;
 static unsigned long 		s_lastBankGet = ULONG_MAX;
 
-#define MIDI_BUFFER_SIZE 4096
-
 struct amsynth_wrapper {
 	Synthesizer *synth;
-	unsigned char *midi_buffer;
+	MidiInputAdaptor midi_in;
 	LADSPA_Data *out_l;
 	LADSPA_Data *out_r;
 	LADSPA_Data **params;
@@ -92,7 +90,6 @@ static LADSPA_Handle instantiate (const LADSPA_Descriptor * descriptor, unsigned
     amsynth_wrapper * a = new amsynth_wrapper;
     a->synth = new Synthesizer;
     a->synth->setSampleRate(s_rate);
-    a->midi_buffer = (unsigned char *)calloc(MIDI_BUFFER_SIZE, 1);
     a->params = (LADSPA_Data **) calloc (kAmsynthParameterCount, sizeof (LADSPA_Data *));
     return (LADSPA_Handle) a;
 }
@@ -102,7 +99,6 @@ static void cleanup (LADSPA_Handle instance)
 	TRACE();
     amsynth_wrapper * a = (amsynth_wrapper *) instance;
     delete a->synth;
-    free (a->midi_buffer);
     free (a->params);
     delete a;
 }
@@ -181,17 +177,13 @@ static void run_synth (LADSPA_Handle instance, unsigned long sample_count, snd_s
 {
 	amsynth_wrapper * a = (amsynth_wrapper *) instance;
 
-	memset(a->midi_buffer, 0, MIDI_BUFFER_SIZE);
-	unsigned char *midi_buffer_ptr = a->midi_buffer;
+	a->midi_in.clear();
 
 #define push_midi_ev3(__status__, __byte1__, __byte2__) do { \
-	midi_buffer_ptr[0] = __status__; \
-	midi_buffer_ptr[1] = __byte1__; \
-	midi_buffer_ptr[2] = __byte2__; \
-	midi_events.push_back((amsynth_midi_event_t){ e->time.tick, 3, midi_buffer_ptr }); \
-	midi_buffer_ptr += 3; } while (0)
+	unsigned char msg[3] = {(unsigned char)__status__, (unsigned char)__byte1__, (unsigned char)__byte2__}; \
+	a->midi_in.append(e->time.tick, msg, 3); \
+	} while (0)
 
-	std::vector<amsynth_midi_event_t> midi_events;
 	for (snd_seq_event_t *e = events; e < events + event_count; e++) {
 		switch (e->type) {
 		case SND_SEQ_EVENT_NOTEON:
@@ -228,7 +220,7 @@ static void run_synth (LADSPA_Handle instance, unsigned long sample_count, snd_s
 	}
 
 	std::vector<amsynth_midi_cc_t> midi_out;
-	a->synth->process(sample_count, midi_events, midi_out, a->out_l, a->out_r);
+	a->synth->process(sample_count, a->midi_in.events, midi_out, a->out_l, a->out_r);
 }
 
 // renoise ignores DSSI plugins that don't implement run
