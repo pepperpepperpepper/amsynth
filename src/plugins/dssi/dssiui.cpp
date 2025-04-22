@@ -185,14 +185,14 @@ public:
                                   juce::DocumentWindow::minimiseButton)
     {
         mainComponent = new MainComponent(&presetController);
-		mainComponent->sendProperty = &host_configure;
+        mainComponent->sendProperty = &host_configure;
         setContentOwned(mainComponent, true);
         centreWithSize(getWidth(), getHeight());
         setResizable(false, false);
-	// Would like to use native title bar but JUCE's Linux implementation is buggy;
-	// - window is always resizable
-	// - window has incorrect initial size
-	// setUsingNativeTitleBar(true);
+        // Would like to use native title bar but JUCE's Linux implementation is buggy;
+        // - window is always resizable
+        // - window has incorrect initial size
+        // setUsingNativeTitleBar(true);
     }
 
     void closeButtonPressed() override
