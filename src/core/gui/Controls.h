@@ -62,7 +62,51 @@ public:
 	: Control(parameter, std::move(image), r) {}
 
 private:
+	class AccessibilityHandler : public juce::AccessibilityHandler
+	{
+	public:
+		explicit AccessibilityHandler(Button &ctrl)
+		: juce::AccessibilityHandler(ctrl, juce::AccessibilityRole::toggleButton, getAccessibilityActions(ctrl), { std::make_unique<ValueInterface>(ctrl) })
+		, control(ctrl)
+		{}
+
+		juce::AccessibleState getCurrentState() const override {
+			auto state = juce::AccessibilityHandler::getCurrentState().withCheckable();
+			return control.parameter.getNormalisedValue() > 0.f ? state.withChecked() : state;
+		}
+
+		juce::String getTitle() const override { return control.parameter.getName(); }
+		juce::String getHelp() const override { return ""; }
+
+	private:
+		class ValueInterface : public juce::AccessibilityTextValueInterface
+		{
+		public:
+			explicit ValueInterface(Button &ctrl) : control(ctrl) {}
+
+			juce::String getCurrentValueAsString() const override { return control.parameter.getNormalisedValue() > 0.f ? "On" : "Off"; }
+			bool isReadOnly() const override { return true; }
+			void setValueAsString(const juce::String &) override {}
+
+			Button &control;
+		};
+
+		static juce::AccessibilityActions getAccessibilityActions(Button &control) {
+			return juce::AccessibilityActions().addAction(juce::AccessibilityActionType::toggle, [&control] { control.toggle(); });
+		}
+
+		Button &control;
+	};
+
+	std::unique_ptr<juce::AccessibilityHandler> createAccessibilityHandler() override {
+		return std::make_unique<AccessibilityHandler>(*this);
+	}
+
 	void leftMouseDown(const juce::MouseEvent &) override {
+		toggle();
+	}
+
+	void toggle() {
 		parameter.beginEdit();
 		parameter.setNormalisedValue(parameter.getNormalisedValue() > 0.f ? 0.f : 1.f);
 		parameter.endEdit();
@@ -112,10 +156,61 @@ private:
 class Popup : public Control {
 public:
 	Popup(Parameter &parameter, juce::Image image, const LayoutDescription::Resource &r)
-	: Control(parameter, std::move(image), r) {}
+	: Control(parameter, std::move(image), r) {
+		setAccessible(true);
+	}
 
 private:
+	class AccessibilityHandler : public juce::AccessibilityHandler
+	{
+	public:
+		explicit AccessibilityHandler(Popup &ctrl)
+		: juce::AccessibilityHandler(ctrl, juce::AccessibilityRole::comboBox, getAccessibilityActions(ctrl), { std::make_unique<ValueInterface>(ctrl) })
+		, control(ctrl)
+		{}
+
+		juce::AccessibleState getCurrentState() const override {
+			return juce::AccessibilityHandler::getCurrentState().withExpandable().withCollapsed();
+		}
+
+		juce::String getTitle() const override { return control.parameter.getName(); }
+		juce::String getHelp() const override { return ""; }
+
+	private:
+		class ValueInterface : public juce::AccessibilityTextValueInterface
+		{
+		public:
+			explicit ValueInterface(Popup &ctrl) : control(ctrl) {}
+
+			juce::String getCurrentValueAsString() const override {
+				const char **strings = parameter_get_value_strings(control.parameter.getId());
+				return strings[(int)std::round(control.parameter.getValue())];
+			}
+
+			bool isReadOnly() const override { return true; }
+			void setValueAsString(const juce::String &) override {}
+
+			Popup &control;
+		};
+
+		static juce::AccessibilityActions getAccessibilityActions (Popup &popup) {
+			return juce::AccessibilityActions()
+				.addAction (juce::AccessibilityActionType::press,    [&popup] { popup.showPopup(); })
+				.addAction (juce::AccessibilityActionType::showMenu, [&popup] { popup.showPopup(); });
+		}
+
+		Popup &control;
+	};
+
+	std::unique_ptr<juce::AccessibilityHandler> createAccessibilityHandler() override {
+		return std::make_unique<AccessibilityHandler>(*this);
+	}
+
 	void leftMouseDown(const juce::MouseEvent &) override {
+		showPopup();
+	}
+
+	void showPopup() {
 		auto strings = parameter_get_value_strings(parameter.getId());
 		auto menu = juce::PopupMenu();
 		for (int i = 0; i <= parameter.getSteps(); i++) {
