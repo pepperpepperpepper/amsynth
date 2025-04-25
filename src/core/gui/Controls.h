@@ -21,8 +21,8 @@
 
 #pragma once
 
-#include "LayoutDescription.h"
 #include "core/synth/Parameter.h"
+#include "LayoutDescription.h"
 
 #include "juce_gui_basics/juce_gui_basics.h"
 
@@ -40,8 +40,7 @@ public:
 	static thread_local bool isMainThread;
 
 protected:
-	class AccessibilityValueInterface : public juce::AccessibilityValueInterface
-	{
+	class AccessibilityValueInterface : public juce::AccessibilityValueInterface {
 	public:
 		explicit AccessibilityValueInterface(Parameter &parameter_) : parameter(parameter_) {}
 
@@ -91,16 +90,13 @@ public:
 	: Control(parameter, std::move(image), r) {}
 
 private:
-	class AccessibilityHandler : public juce::AccessibilityHandler
-	{
+	class AccessibilityHandler : public juce::AccessibilityHandler {
 	public:
 		explicit AccessibilityHandler(Button &ctrl)
-		: juce::AccessibilityHandler(ctrl,
-									 juce::AccessibilityRole::toggleButton,
-									 getAccessibilityActions(ctrl),
-									 juce::AccessibilityHandler::Interfaces {std::make_unique<AccessibilityValueInterface>(ctrl.parameter)})
-		, control(ctrl)
-		{}
+		: juce::AccessibilityHandler(
+			  ctrl, juce::AccessibilityRole::toggleButton, getAccessibilityActions(ctrl),
+			  juce::AccessibilityHandler::Interfaces {std::make_unique<AccessibilityValueInterface>(ctrl.parameter)})
+		, control(ctrl) {}
 
 		juce::AccessibleState getCurrentState() const override {
 			auto state = juce::AccessibilityHandler::getCurrentState().withCheckable();
@@ -112,17 +108,18 @@ private:
 
 	private:
 		static juce::AccessibilityActions getAccessibilityActions(Button &control) {
-			return juce::AccessibilityActions().addAction(juce::AccessibilityActionType::toggle, [&control] { control.toggle(); });
+			return juce::AccessibilityActions().addAction(juce::AccessibilityActionType::toggle,
+														  [&control] { control.toggle(); });
 		}
 
 		Button &control;
 	};
 
-	std::unique_ptr<juce::AccessibilityHandler> createAccessibilityHandler() override { return std::make_unique<AccessibilityHandler>(*this); }
-
-	void leftMouseDown(const juce::MouseEvent &) override {
-		toggle();
+	std::unique_ptr<juce::AccessibilityHandler> createAccessibilityHandler() override {
+		return std::make_unique<AccessibilityHandler>(*this);
 	}
+
+	void leftMouseDown(const juce::MouseEvent &) override { toggle(); }
 
 	void toggle() {
 		parameter.beginEdit();
@@ -155,16 +152,13 @@ public:
 	Knob(Parameter &parameter, juce::Image image, const LayoutDescription::Resource &r, Label *label);
 
 private:
-	class AccessibilityHandler : public juce::AccessibilityHandler
-	{
+	class AccessibilityHandler : public juce::AccessibilityHandler {
 	public:
 		explicit AccessibilityHandler(Knob &ctrl)
-		: juce::AccessibilityHandler(ctrl,
-									 juce::AccessibilityRole::slider,
-									 juce::AccessibilityActions {},
-									 juce::AccessibilityHandler::Interfaces {std::make_unique<AccessibilityValueInterface>(ctrl.parameter)})
-		, control(ctrl)
-		{}
+		: juce::AccessibilityHandler(
+			  ctrl, juce::AccessibilityRole::slider, juce::AccessibilityActions {},
+			  juce::AccessibilityHandler::Interfaces {std::make_unique<AccessibilityValueInterface>(ctrl.parameter)})
+		, control(ctrl) {}
 
 		juce::String getTitle() const override { return control.parameter.getName(); }
 		juce::String getHelp() const override { return control.getTooltip(); }
@@ -179,7 +173,9 @@ private:
 	void leftMouseDown(const juce::MouseEvent &event) override;
 	void mouseDrag(const juce::MouseEvent &event) override;
 	void mouseWheelMove(const juce::MouseEvent &event, const juce::MouseWheelDetails &wheel) override;
-	std::unique_ptr<juce::AccessibilityHandler> createAccessibilityHandler() override { return std::make_unique<AccessibilityHandler>(*this); }
+	std::unique_ptr<juce::AccessibilityHandler> createAccessibilityHandler() override {
+		return std::make_unique<AccessibilityHandler>(*this);
+	}
 
 	juce::String getLabelText();
 
@@ -198,16 +194,13 @@ public:
 	}
 
 private:
-	class AccessibilityHandler : public juce::AccessibilityHandler
-	{
+	class AccessibilityHandler : public juce::AccessibilityHandler {
 	public:
 		explicit AccessibilityHandler(Popup &ctrl)
-		: juce::AccessibilityHandler(ctrl,
-									 juce::AccessibilityRole::comboBox,
-									 getAccessibilityActions(ctrl),
-									 juce::AccessibilityHandler::Interfaces {std::make_unique<AccessibilityValueInterface>(ctrl.parameter)})
-		, control(ctrl)
-		{}
+		: juce::AccessibilityHandler(
+			  ctrl, juce::AccessibilityRole::comboBox, getAccessibilityActions(ctrl),
+			  juce::AccessibilityHandler::Interfaces {std::make_unique<AccessibilityValueInterface>(ctrl.parameter)})
+		, control(ctrl) {}
 
 		juce::AccessibleState getCurrentState() const override {
 			return juce::AccessibilityHandler::getCurrentState().withExpandable().withCollapsed();
@@ -219,18 +212,18 @@ private:
 	private:
 		static juce::AccessibilityActions getAccessibilityActions(Popup &popup) {
 			return juce::AccessibilityActions()
-				.addAction (juce::AccessibilityActionType::press,    [&popup] { popup.showPopup(); })
-				.addAction (juce::AccessibilityActionType::showMenu, [&popup] { popup.showPopup(); });
+				.addAction(juce::AccessibilityActionType::press, [&popup] { popup.showPopup(); })
+				.addAction(juce::AccessibilityActionType::showMenu, [&popup] { popup.showPopup(); });
 		}
 
 		Popup &control;
 	};
 
-	std::unique_ptr<juce::AccessibilityHandler> createAccessibilityHandler() override { return std::make_unique<AccessibilityHandler>(*this); }
-
-	void leftMouseDown(const juce::MouseEvent &) override {
-		showPopup();
+	std::unique_ptr<juce::AccessibilityHandler> createAccessibilityHandler() override {
+		return std::make_unique<AccessibilityHandler>(*this);
 	}
+
+	void leftMouseDown(const juce::MouseEvent &) override { showPopup(); }
 
 	void showPopup() {
 		auto strings = parameter_get_value_strings(parameter.getId());
