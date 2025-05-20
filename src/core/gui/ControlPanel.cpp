@@ -113,6 +113,7 @@ struct ControlPanel::Impl final : juce::MouseListener, juce::Timer
 				component = std::make_unique<Popup>(parameter, image, resource);
 			}
 			if (component) {
+				component->setTitle(juce::CharPointer_UTF8(parameter.getDisplayName()));
 				component->setTopLeftPosition(control.x, control.y);
 				component->addMouseListener(this, false);
 				controlPanel->addAndMakeVisible(component.get());

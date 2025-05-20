@@ -103,7 +103,6 @@ private:
 			return control.parameter.getNormalisedValue() > 0.f ? state.withChecked() : state;
 		}
 
-		juce::String getTitle() const override { return control.parameter.getName(); }
 		juce::String getHelp() const override { return control.getTooltip(); }
 
 	private:
@@ -160,7 +159,6 @@ private:
 			  juce::AccessibilityHandler::Interfaces {std::make_unique<AccessibilityValueInterface>(ctrl.parameter)})
 		, control(ctrl) {}
 
-		juce::String getTitle() const override { return control.parameter.getName(); }
 		juce::String getHelp() const override { return control.getTooltip(); }
 
 	private:
@@ -206,7 +204,6 @@ private:
 			return juce::AccessibilityHandler::getCurrentState().withExpandable().withCollapsed();
 		}
 
-		juce::String getTitle() const override { return control.parameter.getName(); }
 		juce::String getHelp() const override { return control.getTooltip(); }
 
 	private:
