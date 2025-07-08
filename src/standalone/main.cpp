@@ -201,6 +201,7 @@ public:
 				Configuration::get().pitch_bend_range = std::stoi(value);
 			Configuration::get().save();
 		};
+		mainComponent->isPlugin = false;
 		setContentOwned(mainComponent, true);
 		centreWithSize(getWidth(), getHeight());
 		setResizable(false, false);
