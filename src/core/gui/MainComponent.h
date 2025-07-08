@@ -46,6 +46,7 @@ public:
 	void propertyChanged(const char *name, const char *value);
 
 	bool isPlugin {true};
+	std::function<void()> showConfigDialog;
 
 private:
 	struct Impl;

@@ -355,7 +355,7 @@ private:
 	std::unique_ptr<juce::TextButton> applyButton;
 };
 
-void show_config_dialog()
+static void show_config_dialog()
 {
 	juce::DialogWindow::LaunchOptions launchOptions;
 	launchOptions.content.setOwned(new AudioMidiSettings());
@@ -387,6 +387,7 @@ public:
 			Configuration::get().save();
 		};
 		mainComponent->isPlugin = false;
+		mainComponent->showConfigDialog = [] { show_config_dialog(); };
 		setContentOwned(mainComponent, true);
 		centreWithSize(getWidth(), getHeight());
 		setResizable(false, false);
