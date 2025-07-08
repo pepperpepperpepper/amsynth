@@ -266,7 +266,7 @@ struct MainComponent::Impl : private juce::Timer {
                 auto key = PROP_NAME(midi_channel);
                 int currentValue = getIntProperty(key, 0);
 				for (int i = 0; i <= 16; i++) {
-					submenu.addItem(i ? std::to_string(i) : GETTEXT("Unlimited"), true, i == currentValue, [=] {
+					submenu.addItem(i ? std::to_string(i) : GETTEXT("All"), true, i == currentValue, [=] {
 						setIntProperty(key, i);
 					});
 				}
