@@ -39,6 +39,8 @@ enum CommandIDs {
 
 static constexpr int toolbarHeight = 25;
 
+extern void show_config_dialog();
+
 class LookAndFeel : public juce::LookAndFeel_V4 {
 public:
 	juce::PopupMenu::Options getOptionsForComboBoxPopupMenu(juce::ComboBox& box, juce::Label& label) override {
@@ -270,6 +272,9 @@ struct MainComponent::Impl : private juce::Timer {
 				}
 				return submenu;
 			}());
+			menu.addItem(GETTEXT("Audio & MIDI..."), [this] {
+				show_config_dialog();
+			});
 		}
 
 		menu.addSectionHeader(GETTEXT("Help"));

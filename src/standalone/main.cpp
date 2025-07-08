@@ -98,8 +98,9 @@ static void sched_realtime()
 
 void ptest ();
 
+static GenericOutput *audioOutput;
 static MidiDriver *midiDriver;
-Synthesizer *s_synthesizer;
+static Synthesizer *s_synthesizer;
 static unsigned char *midiBuffer;
 static const size_t midiBufferSize = 4096;
 static int gui_midi_pipe[2];
@@ -181,6 +182,190 @@ static void fatal_error(const std::string & msg)
 
 #ifdef WITH_GUI
 
+class AudioMidiSettings : public juce::Component
+{
+public:
+	AudioMidiSettings()
+	{
+		audioTypeCombo = std::make_unique<juce::ComboBox>();
+		addItems(audioTypeCombo.get(), config.audio_driver.c_str(), {"auto", "alsa", "alsa-mmap", "oss", "jack"});
+		audioTypeCombo->onChange = [this] { setEdited(); };
+		addAndMakeVisible(audioTypeCombo.get());
+
+		audioTypeLabel = std::make_unique<juce::Label>("", _("Audio device type:"));
+		audioTypeLabel->setJustificationType(juce::Justification::centredRight);
+		audioTypeLabel->attachToComponent(audioTypeCombo.get(), true);
+
+		alsaAudioDevice = std::make_unique<juce::TextEditor>();
+		alsaAudioDevice->setText(config.alsa_audio_device.c_str());
+		alsaAudioDevice->onTextChange = [this] { setEdited(); };
+		addAndMakeVisible(alsaAudioDevice.get());
+
+		alsaAudioDeviceLabel = std::make_unique<juce::Label>("", _("ALSA audio device:"));
+		alsaAudioDeviceLabel->setJustificationType(juce::Justification::centredRight);
+		alsaAudioDeviceLabel->attachToComponent(alsaAudioDevice.get(), true);
+
+		ossAudioDevice = std::make_unique<juce::TextEditor>();
+		ossAudioDevice->setText(config.oss_audio_device.c_str());
+		ossAudioDevice->onTextChange = [this] { setEdited(); };
+		addAndMakeVisible(ossAudioDevice.get());
+
+		ossAudioDeviceLabel = std::make_unique<juce::Label>("", _("OSS audio device:"));
+		ossAudioDeviceLabel->setJustificationType(juce::Justification::centredRight);
+		ossAudioDeviceLabel->attachToComponent(ossAudioDevice.get(), true);
+
+		sampleRateCombo = std::make_unique<juce::ComboBox>();
+		addItems(sampleRateCombo.get(), std::to_string(config.sample_rate).c_str(), {"22050", "44100", "48000", "96000", "176400", "192000"});
+		sampleRateCombo->onChange = [this] { setEdited(); };
+		addAndMakeVisible(sampleRateCombo.get());
+
+		sampleRateLabel = std::make_unique<juce::Label>("", _("Sample rate:"));
+		sampleRateLabel->setJustificationType(juce::Justification::centredRight);
+		sampleRateLabel->attachToComponent(sampleRateCombo.get(), true);
+
+		midiTypeCombo = std::make_unique<juce::ComboBox>();
+		addItems(midiTypeCombo.get(), config.midi_driver.c_str(), {"auto", "alsa", "oss", "jack"});
+		midiTypeCombo->onChange = [this] { setEdited(); };
+		addAndMakeVisible(midiTypeCombo.get());
+
+		midiTypeLabel = std::make_unique<juce::Label>("", _("MIDI device type:"));
+		midiTypeLabel->setJustificationType(juce::Justification::centredRight);
+		midiTypeLabel->attachToComponent(midiTypeCombo.get(), true);
+
+		ossMidiDevice = std::make_unique<juce::TextEditor>();
+		ossMidiDevice->setText(config.oss_midi_device.c_str());
+		ossMidiDevice->onTextChange = [this] { setEdited(); };
+		addAndMakeVisible(ossMidiDevice.get());
+
+		ossMidiDeviceLabel = std::make_unique<juce::Label>("", _("OSS MIDI device:"));
+		ossMidiDeviceLabel->setJustificationType(juce::Justification::centredRight);
+		ossMidiDeviceLabel->attachToComponent(ossMidiDevice.get(), true);
+
+		applyButton = std::make_unique<juce::TextButton>(_("Apply"), "");
+		applyButton->onClick = [this] { apply(); };
+		applyButton->setEnabled(false);
+		addAndMakeVisible(applyButton.get());
+
+		setBounds(0, 0, 400, 0);
+	}
+
+	void resized() override
+	{
+		juce::Rectangle<int> r(proportionOfWidth(0.35f), 15, proportionOfWidth(0.6f), 3000);
+		constexpr int itemHeight = 24;
+		constexpr int space = itemHeight / 4;
+
+		audioTypeCombo->setBounds(r.removeFromTop(itemHeight));
+		r.removeFromTop(space);
+		alsaAudioDevice->setBounds(r.removeFromTop(itemHeight));
+		r.removeFromTop(space);
+		ossAudioDevice->setBounds(r.removeFromTop(itemHeight));
+		r.removeFromTop(space);
+		sampleRateCombo->setBounds(r.removeFromTop(itemHeight));
+		r.removeFromTop(space * 3);
+
+		midiTypeCombo->setBounds(r.removeFromTop(itemHeight));
+		r.removeFromTop(space);
+		ossMidiDevice->setBounds(r.removeFromTop(itemHeight));
+		r.removeFromTop(space * 3);
+
+		applyButton->setBounds(r.removeFromTop(itemHeight));
+		r.removeFromTop(space * 3);
+
+		setSize(getWidth(), r.getY());
+	}
+
+	static void addItems(juce::ComboBox *comboBox, const char *selected, const std::vector<const char *> &items)
+	{
+		int i = 0;
+		for (const char *it : items) {
+			comboBox->addItem(it, i + 1);
+			if (strcmp(it, selected) == 0)
+				comboBox->setSelectedItemIndex(i, juce::dontSendNotification);
+			i++;
+		}
+	}
+
+	static std::string getSelectedItemString(const juce::ComboBox *comboBox)
+	{
+		return comboBox->getItemText(comboBox->getSelectedItemIndex()).toStdString();
+	}
+
+	void setEdited() { applyButton->setEnabled(true); }
+
+	void apply()
+	{
+		applyButton->setEnabled(false);
+
+		if (audioOutput) {
+			audioOutput->Stop();
+			delete audioOutput;
+			audioOutput = nullptr;
+		}
+
+		if (midiDriver) {
+			midiDriver->close();
+			delete midiDriver;
+			midiDriver = nullptr;
+		}
+
+		config.current_audio_driver.clear();
+		config.current_midi_driver.clear();
+		config.audio_driver = getSelectedItemString(audioTypeCombo.get());
+		config.alsa_audio_device = alsaAudioDevice->getText().toStdString();
+		config.oss_audio_device = ossAudioDevice->getText().toStdString();
+		config.sample_rate = std::stoi(getSelectedItemString(sampleRateCombo.get()));
+		config.midi_driver = getSelectedItemString(midiTypeCombo.get());
+		config.oss_midi_device = ossMidiDevice->getText().toStdString();
+		config.save();
+
+		s_synthesizer->setSampleRate(config.sample_rate);
+		audioOutput = open_audio();
+		audioOutput->init();
+		audioOutput->Start();
+
+		open_midi();
+
+		juce::String errorMessage;
+		if (config.current_audio_driver.empty())
+			errorMessage += GETTEXT("Could not initialise the configured audio device.\n");
+		if (config.current_midi_driver.empty())
+			errorMessage += GETTEXT("Could not initialise the configured MIDI device.\n");
+		if (errorMessage.isNotEmpty())
+			juce::AlertWindow::showAsync(
+				juce::MessageBoxOptions()
+					.withTitle(GETTEXT("Configuration error"))
+					.withMessage(errorMessage)
+					.withButton(GETTEXT("OK")), {});
+	}
+
+private:
+	std::unique_ptr<juce::ComboBox> audioTypeCombo;
+	std::unique_ptr<juce::Label> audioTypeLabel;
+	std::unique_ptr<juce::TextEditor> alsaAudioDevice;
+	std::unique_ptr<juce::Label> alsaAudioDeviceLabel;
+	std::unique_ptr<juce::TextEditor> ossAudioDevice;
+	std::unique_ptr<juce::Label> ossAudioDeviceLabel;
+	std::unique_ptr<juce::ComboBox> sampleRateCombo;
+	std::unique_ptr<juce::Label> sampleRateLabel;
+	std::unique_ptr<juce::ComboBox> midiTypeCombo;
+	std::unique_ptr<juce::Label> midiTypeLabel;
+	std::unique_ptr<juce::TextEditor> ossMidiDevice;
+	std::unique_ptr<juce::Label> ossMidiDeviceLabel;
+	std::unique_ptr<juce::TextButton> applyButton;
+};
+
+void show_config_dialog()
+{
+	juce::DialogWindow::LaunchOptions launchOptions;
+	launchOptions.content.setOwned(new AudioMidiSettings());
+	launchOptions.dialogBackgroundColour = launchOptions.content->getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId);
+	launchOptions.dialogTitle = _("Audio/MIDI Settings");
+	launchOptions.resizable = false;
+	launchOptions.useNativeTitleBar = false;
+	launchOptions.launchAsync();
+}
+
 class MainWindow : public juce::DocumentWindow
 {
 public:
@@ -232,22 +417,19 @@ public:
 		juce::String errorMessage;
 		if (config.current_audio_driver.empty()) {
 			errorMessage = GETTEXT("Could not initialise the configured audio device.\n\n"
-								   "Please edit ~/.config/amsynth/config and restart");
+								   "Please check audio configuration");
 		} else if (config.current_midi_driver.empty()) {
 			errorMessage = GETTEXT("Could not initialise the configured MIDI device.\n\n"
-								   "Please edit ~/.config/amsynth/config and restart");
+								   "Please check MIDI configuration");
 		}
 
 		if (errorMessage.isNotEmpty()) {
 			juce::AlertWindow::showAsync(
-					juce::MessageBoxOptions()
-							.withTitle(GETTEXT("Configuration error"))
-							.withMessage(errorMessage)
-							.withButton(GETTEXT("OK")),
-					[this](int) {
-						(void)!system(("xdg-open " + filesystem::get().config).c_str());
-						quit();
-					});
+				juce::MessageBoxOptions()
+					.withTitle(GETTEXT("Configuration error"))
+					.withMessage(errorMessage)
+					.withButton(GETTEXT("Audio & MIDI...")),
+					[this](int) { show_config_dialog(); });
 		}
 
 		struct LashTimer : juce::Timer
@@ -393,14 +575,6 @@ int main( int argc, char *argv[] )
 	std::string amsynth_bank_file = config.current_bank_file;
 	// string amsynth_tuning_file = config.current_tuning_file;
 
-	GenericOutput *out = open_audio();
-	if (!out)
-		fatal_error(std::string(_("Fatal Error: open_audio() returned NULL.\n")) +
-					"config.audio_driver = " + config.audio_driver);
-
-	// errors now detected & reported in the GUI
-	out->init();
-
 	Preset::setLockedParameterNames(config.locked_parameters);
 
 	s_synthesizer = new Synthesizer();
@@ -425,8 +599,9 @@ int main( int argc, char *argv[] )
 	if (config.current_tuning_file != "default")
 		amsynth_load_tuning_file(config.current_tuning_file.c_str());
 	
-	// errors now detected & reported in the GUI
-	out->Start();
+	audioOutput = open_audio();
+	audioOutput->init();
+	audioOutput->Start();
 	
 	open_midi();
 	midiBuffer = (unsigned char *)malloc(midiBufferSize);
@@ -469,11 +644,11 @@ int main( int argc, char *argv[] )
 	}
 #endif
 
-	out->Stop ();
+	audioOutput->Stop ();
 
 	if (config.xruns) std::cerr << config.xruns << _(" audio buffer underruns occurred\n");
 
-	delete out;
+	delete audioOutput;
 	return 0;
 }
 
