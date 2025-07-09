@@ -360,32 +360,15 @@ struct MainComponent::Impl : private juce::Timer {
 
 	void showAbout() {
 		auto editor = new juce::TextEditor();
+		editor->setColour(juce::TextEditor::backgroundColourId, juce::Colour((uint8_t)0, (uint8_t)0, (uint8_t)0, 0.8f));
 		editor->setSize(component_->getWidth(), component_->getHeight());
 		editor->setJustification(juce::Justification::centred);
 		editor->setMultiLine(true);
 		editor->setReadOnly(true);
-		editor->setText("amsynth\n"
-						"version " PACKAGE_VERSION "\n"
-						"\n"
-						"Copyright (c) 2002 Nick Dowell\n"
-						"\n"
-						"With contributions from:\n"
-						"Adam Sampson\n"
-						"Adrian Knoth\n"
-						"Andy Ryan\n"
-						"Bob Ham\n"
-						"Brian\n"
-						"Chris Cannam\n"
-						"Darrick Servis\n"
-						"Johan Martinsson\n"
-						"Karsten Wiese\n"
-						"Martin Tarenskeen\n"
-						"Paul Winkler\n"
-						"Samuli Suominen\n"
-						"Sebastien Cevey\n"
-						"Taybin Rutkin\n"
-						"\n"
-						"Includes Freeverb by Jezar Wakefield");
+		editor->setText("amsynth version " PACKAGE_VERSION "\n\n"
+						"Copyright (c) 2002 Nick Dowell and amsynth contributors.\n"
+						"Released under the GNU General Public License version 2.\n\n"
+						"Includes Freeverb by Jezar Wakefield.");
 		class MouseListener : public juce::MouseListener {
 			void mouseDown(const juce::MouseEvent &event) override {
 				event.eventComponent->getParentComponent()->removeChildComponent(event.eventComponent);
