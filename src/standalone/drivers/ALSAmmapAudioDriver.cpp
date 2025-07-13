@@ -108,7 +108,7 @@ ALSAmmapAudioDriver::write(float *buffer, int frames)
 		}
 		lframes = frames / 2;
 		if( (int)avail >= (int)lframes ) break;
-		if( 0 > ( err = snd_pcm_wait( playback_handle, -1)))
+		if( 0 > ( err = snd_pcm_wait( playback_handle, 1000)))
 		{
 //			std::cerr << "snd_pcm_wait error\n";
 			config.xruns++;
