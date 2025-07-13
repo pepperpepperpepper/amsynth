@@ -60,6 +60,9 @@ ALSAAudioDriver::write(float *buffer, int nsamples)
 	}
 
 	assert(nsamples <= kMaxWriteFrames);
+	if (nsamples > kMaxWriteFrames)
+		return -1;
+
 	for (int i = 0; i < nsamples; i++) {
 		short s16 = buffer[i] * 32767;
 		((unsigned char *)_buffer)[i * 2 + 0] = ( s16       & 0xff);
