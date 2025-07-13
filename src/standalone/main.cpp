@@ -187,6 +187,24 @@ class AudioMidiSettings : public juce::Component
 public:
 	AudioMidiSettings()
 	{
+		midiTypeCombo = std::make_unique<juce::ComboBox>();
+		addItems(midiTypeCombo.get(), config.midi_driver.c_str(), {"auto", "alsa", "oss", "jack"});
+		midiTypeCombo->onChange = [this] { setEdited(); };
+		addAndMakeVisible(midiTypeCombo.get());
+
+		midiTypeLabel = std::make_unique<juce::Label>("", _("MIDI device type:"));
+		midiTypeLabel->setJustificationType(juce::Justification::centredRight);
+		midiTypeLabel->attachToComponent(midiTypeCombo.get(), true);
+
+		ossMidiDevice = std::make_unique<juce::TextEditor>();
+		ossMidiDevice->setText(config.oss_midi_device.c_str());
+		ossMidiDevice->onTextChange = [this] { setEdited(); };
+		addAndMakeVisible(ossMidiDevice.get());
+
+		ossMidiDeviceLabel = std::make_unique<juce::Label>("", _("OSS MIDI device:"));
+		ossMidiDeviceLabel->setJustificationType(juce::Justification::centredRight);
+		ossMidiDeviceLabel->attachToComponent(ossMidiDevice.get(), true);
+
 		audioTypeCombo = std::make_unique<juce::ComboBox>();
 		addItems(audioTypeCombo.get(), config.audio_driver.c_str(), {"auto", "alsa", "alsa-mmap", "oss", "jack"});
 		audioTypeCombo->onChange = [this] { setEdited(); };
@@ -223,24 +241,6 @@ public:
 		sampleRateLabel->setJustificationType(juce::Justification::centredRight);
 		sampleRateLabel->attachToComponent(sampleRateCombo.get(), true);
 
-		midiTypeCombo = std::make_unique<juce::ComboBox>();
-		addItems(midiTypeCombo.get(), config.midi_driver.c_str(), {"auto", "alsa", "oss", "jack"});
-		midiTypeCombo->onChange = [this] { setEdited(); };
-		addAndMakeVisible(midiTypeCombo.get());
-
-		midiTypeLabel = std::make_unique<juce::Label>("", _("MIDI device type:"));
-		midiTypeLabel->setJustificationType(juce::Justification::centredRight);
-		midiTypeLabel->attachToComponent(midiTypeCombo.get(), true);
-
-		ossMidiDevice = std::make_unique<juce::TextEditor>();
-		ossMidiDevice->setText(config.oss_midi_device.c_str());
-		ossMidiDevice->onTextChange = [this] { setEdited(); };
-		addAndMakeVisible(ossMidiDevice.get());
-
-		ossMidiDeviceLabel = std::make_unique<juce::Label>("", _("OSS MIDI device:"));
-		ossMidiDeviceLabel->setJustificationType(juce::Justification::centredRight);
-		ossMidiDeviceLabel->attachToComponent(ossMidiDevice.get(), true);
-
 		applyButton = std::make_unique<juce::TextButton>(_("Apply"), "");
 		applyButton->onClick = [this] { apply(); };
 		applyButton->setEnabled(false);
@@ -255,6 +255,11 @@ public:
 		constexpr int itemHeight = 24;
 		constexpr int space = itemHeight / 4;
 
+		midiTypeCombo->setBounds(r.removeFromTop(itemHeight));
+		r.removeFromTop(space);
+		ossMidiDevice->setBounds(r.removeFromTop(itemHeight));
+		r.removeFromTop(space * 3);
+
 		audioTypeCombo->setBounds(r.removeFromTop(itemHeight));
 		r.removeFromTop(space);
 		alsaAudioDevice->setBounds(r.removeFromTop(itemHeight));
@@ -262,11 +267,6 @@ public:
 		ossAudioDevice->setBounds(r.removeFromTop(itemHeight));
 		r.removeFromTop(space);
 		sampleRateCombo->setBounds(r.removeFromTop(itemHeight));
-		r.removeFromTop(space * 3);
-
-		midiTypeCombo->setBounds(r.removeFromTop(itemHeight));
-		r.removeFromTop(space);
-		ossMidiDevice->setBounds(r.removeFromTop(itemHeight));
 		r.removeFromTop(space * 3);
 
 		applyButton->setBounds(r.removeFromTop(itemHeight));
@@ -340,6 +340,10 @@ public:
 	}
 
 private:
+	std::unique_ptr<juce::ComboBox> midiTypeCombo;
+	std::unique_ptr<juce::Label> midiTypeLabel;
+	std::unique_ptr<juce::TextEditor> ossMidiDevice;
+	std::unique_ptr<juce::Label> ossMidiDeviceLabel;
 	std::unique_ptr<juce::ComboBox> audioTypeCombo;
 	std::unique_ptr<juce::Label> audioTypeLabel;
 	std::unique_ptr<juce::TextEditor> alsaAudioDevice;
@@ -348,10 +352,6 @@ private:
 	std::unique_ptr<juce::Label> ossAudioDeviceLabel;
 	std::unique_ptr<juce::ComboBox> sampleRateCombo;
 	std::unique_ptr<juce::Label> sampleRateLabel;
-	std::unique_ptr<juce::ComboBox> midiTypeCombo;
-	std::unique_ptr<juce::Label> midiTypeLabel;
-	std::unique_ptr<juce::TextEditor> ossMidiDevice;
-	std::unique_ptr<juce::Label> ossMidiDeviceLabel;
 	std::unique_ptr<juce::TextButton> applyButton;
 };
 
