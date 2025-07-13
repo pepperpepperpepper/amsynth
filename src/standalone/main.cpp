@@ -241,6 +241,14 @@ public:
 		sampleRateLabel->setJustificationType(juce::Justification::centredRight);
 		sampleRateLabel->attachToComponent(sampleRateCombo.get(), true);
 
+		jackAutoconnect = std::make_unique<juce::ToggleButton>(_("Auto-connect to system outputs"));
+		jackAutoconnect->setToggleState(config.jack_autoconnect, juce::dontSendNotification);
+		jackAutoconnect->onClick = [this] { setEdited(); };
+		addAndMakeVisible(jackAutoconnect.get());
+
+		jackAutoconnectLabel = std::make_unique<juce::Label>("", _("JACK"));
+		jackAutoconnectLabel->attachToComponent(jackAutoconnect.get(), true);
+
 		applyButton = std::make_unique<juce::TextButton>(_("Apply"), "");
 		applyButton->onClick = [this] { apply(); };
 		applyButton->setEnabled(false);
@@ -267,6 +275,8 @@ public:
 		ossAudioDevice->setBounds(r.removeFromTop(itemHeight));
 		r.removeFromTop(space);
 		sampleRateCombo->setBounds(r.removeFromTop(itemHeight));
+		r.removeFromTop(space);
+		jackAutoconnect->setBounds(r.removeFromTop(itemHeight));
 		r.removeFromTop(space * 3);
 
 		applyButton->setBounds(r.removeFromTop(itemHeight));
@@ -317,6 +327,7 @@ public:
 		config.sample_rate = std::stoi(getSelectedItemString(sampleRateCombo.get()));
 		config.midi_driver = getSelectedItemString(midiTypeCombo.get());
 		config.oss_midi_device = ossMidiDevice->getText().toStdString();
+		config.jack_autoconnect = jackAutoconnect->getToggleState();
 		config.save();
 
 		s_synthesizer->setSampleRate(config.sample_rate);
@@ -352,6 +363,8 @@ private:
 	std::unique_ptr<juce::Label> ossAudioDeviceLabel;
 	std::unique_ptr<juce::ComboBox> sampleRateCombo;
 	std::unique_ptr<juce::Label> sampleRateLabel;
+	std::unique_ptr<juce::ToggleButton> jackAutoconnect;
+	std::unique_ptr<juce::Label> jackAutoconnectLabel;
 	std::unique_ptr<juce::TextButton> applyButton;
 };
 
