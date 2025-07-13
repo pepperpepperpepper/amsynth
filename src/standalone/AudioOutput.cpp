@@ -28,6 +28,7 @@
 #include "drivers/OSSAudioDriver.h"
 
 #include <cstdlib>
+#include <pthread.h>
 
 
 static AudioDriver * open_driver();
@@ -67,7 +68,11 @@ AudioOutput::Stop ()
 {
 	shouldStop = true;
 	if (thread.joinable()) {
-		thread.join();
+		timespec timeout {.tv_sec = 1, .tv_nsec = 0};
+		if (pthread_timedjoin_np(thread.native_handle(), nullptr, &timeout) != 0) {
+			pthread_cancel(thread.native_handle());
+		}
+		thread.detach();
 	}
 
 	if (driver) {
