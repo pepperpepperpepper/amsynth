@@ -365,10 +365,10 @@ struct MainComponent::Impl : private juce::Timer {
 		editor->setJustification(juce::Justification::centred);
 		editor->setMultiLine(true);
 		editor->setReadOnly(true);
-		editor->setText("amsynth version " PACKAGE_VERSION "\n\n"
-						"Copyright (c) 2002 Nick Dowell and amsynth contributors.\n"
-						"Released under the GNU General Public License version 2.\n\n"
-						"Includes Freeverb by Jezar Wakefield.");
+		editor->setText(juce::String(juce::CharPointer_UTF8(
+			"amsynth " PACKAGE_VERSION "\n\n"
+			"Analog Modelling SYNTHesizer\n\n"
+			"Copyright © 2002 - 2025 Nick Dowell and contributors")));
 		class MouseListener : public juce::MouseListener {
 			void mouseDown(const juce::MouseEvent &event) override {
 				event.eventComponent->getParentComponent()->removeChildComponent(event.eventComponent);
