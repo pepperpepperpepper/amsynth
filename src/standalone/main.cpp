@@ -104,6 +104,7 @@ static Synthesizer *s_synthesizer;
 static unsigned char *midiBuffer;
 static const size_t midiBufferSize = 4096;
 static int gui_midi_pipe[2];
+static double ui_scale = 0.0;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -426,6 +427,9 @@ public:
 
 	void initialise(const juce::String &commandLine) override
 	{
+		if (ui_scale != 0.0)
+			juce::Desktop::getInstance().setGlobalScaleFactor(ui_scale);
+
 		(new MainWindow())->setVisible(true);
 
 		juce::String errorMessage;
@@ -497,7 +501,6 @@ int main( int argc, char *argv[] )
 	amsynth_lash_process_args(&argc, &argv);
 	
 	bool no_gui = (getenv("AMSYNTH_NO_GUI") != nullptr);
-	int gui_scale_factor = 0;
 
 	static struct option longopts[] = {
 		{ "jack_autoconnect", optional_argument, nullptr, 0 },
@@ -578,7 +581,7 @@ int main( int argc, char *argv[] )
 					config.jack_autoconnect = !optarg || (strcmp(optarg, "true") == 0);
 				}
 				if (strcmp(longopts[longindex].name, "force-device-scale-factor") == 0) {
-					gui_scale_factor = atoi(optarg);
+					ui_scale = atof(optarg);
 				}
 				break;
 			default:
@@ -642,8 +645,6 @@ int main( int argc, char *argv[] )
 
 #ifdef WITH_GUI
 	if (!no_gui) {
-		if (gui_scale_factor)
-			juce::Desktop::getInstance().setGlobalScaleFactor((float)gui_scale_factor);
 		juce::JUCEApplicationBase::createInstance = &Application::create;
 		juce::JUCEApplicationBase::main(JUCE_MAIN_FUNCTION_ARGS);
 	} else {
