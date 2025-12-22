@@ -54,6 +54,7 @@ Configuration::Defaults	()
 	polyphony = 10;
 	pitch_bend_range = 2;
 	jack_autoconnect = true;
+	ui_scale = 0.0;
 	jack_client_name_preference = "amsynth";
 	current_bank_file = filesystem::get().default_bank;
 	current_tuning_file = "default";
@@ -110,6 +111,9 @@ Configuration::load	()
 		} else if (buffer == "jack_autoconnect") {
 			file >> buffer;
 			jack_autoconnect = (buffer == "true");
+		} else if (buffer == "ui_scale") {
+			file >> buffer;
+			std::istringstream(buffer) >> ui_scale;
 		} else {
 			file >> buffer;
 		}
@@ -135,6 +139,7 @@ Configuration::save	()
 	fprintf (fout, "tuning_file\t%s\n", current_tuning_file.c_str());
 	fprintf (fout, "ignored_parameters\t%s\n", locked_parameters.c_str());
 	fprintf (fout, "jack_autoconnect\t%s\n", jack_autoconnect ? "true" : "false");
+	fprintf (fout, "ui_scale\t%f\n", ui_scale);
 	fclose (fout);
 	return 0;
 }

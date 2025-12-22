@@ -121,6 +121,8 @@ public:
 	
 	bool jack_autoconnect;
 
+	double ui_scale;
+
 	/* internal */
 	std::string	jack_client_name;
 	std::string	jack_client_name_preference;

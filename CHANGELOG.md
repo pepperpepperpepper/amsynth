@@ -8,6 +8,7 @@
   - Added support for [MTS-ESP](https://github.com/ODDSound/MTS-ESP) microtuning,
     excluding multi-channel tuning tables.
   - Removed support for JACK-Session, which is deprecated and unsupported.
+  - Renamed `--force-device-scale-factor` to `--ui-scale` and added `ui_scale` to config file.
   - Fixed a memory leak in VST effGetChunk handler.
   - Fixed unintentional distortion on some presets - issue #235
   - Fixed values passed to VST audioMasterAutomate.

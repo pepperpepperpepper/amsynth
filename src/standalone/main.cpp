@@ -104,7 +104,6 @@ static Synthesizer *s_synthesizer;
 static unsigned char *midiBuffer;
 static const size_t midiBufferSize = 4096;
 static int gui_midi_pipe[2];
-static double ui_scale = 0.0;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -427,8 +426,8 @@ public:
 
 	void initialise(const juce::String &commandLine) override
 	{
-		if (ui_scale != 0.0)
-			juce::Desktop::getInstance().setGlobalScaleFactor(ui_scale);
+		if (config.ui_scale != 0.0)
+			juce::Desktop::getInstance().setGlobalScaleFactor(config.ui_scale);
 
 		(new MainWindow())->setVisible(true);
 
@@ -504,7 +503,7 @@ int main( int argc, char *argv[] )
 
 	static struct option longopts[] = {
 		{ "jack_autoconnect", optional_argument, nullptr, 0 },
-		{ "force-device-scale-factor", required_argument, nullptr, 0 },
+		{ "ui-scale", required_argument, nullptr, 0 },
 		{ nullptr }
 	};
 	
@@ -539,8 +538,8 @@ int main( int argc, char *argv[] )
 					<< _("	--jack_autoconnect[=<true|false>]") << "\n"
 					<< _("	            automatically connect jack audio ports to hardware I/O ports. (Default: true)") << "\n"
 					<< "\n"
-					<< _("	--force-device-scale-factor <scale>") << "\n"
-					<< _("	            override the default scaling factor for the control panel") << "\n"
+					<< _("	--ui-scale <scale>") << "\n"
+					<< _("	            set the scaling factor for the GUI") << "\n"
 					<< std::endl;
 				return 0;
 			case 'z':
@@ -580,8 +579,8 @@ int main( int argc, char *argv[] )
 				if (strcmp(longopts[longindex].name, "jack_autoconnect") == 0) {
 					config.jack_autoconnect = !optarg || (strcmp(optarg, "true") == 0);
 				}
-				if (strcmp(longopts[longindex].name, "force-device-scale-factor") == 0) {
-					ui_scale = atof(optarg);
+				if (strcmp(longopts[longindex].name, "ui-scale") == 0) {
+					config.ui_scale = atof(optarg);
 				}
 				break;
 			default:
