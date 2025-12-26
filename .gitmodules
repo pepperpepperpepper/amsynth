@@ -1,6 +1,6 @@
 [submodule "external/JUCE"]
 	path = external/JUCE
-	url = https://github.com/juce-framework/JUCE
+	url = https://github.com/amsynth/JUCE.git
 	shallow = true
 [submodule "external/MTS-ESP"]
 	path = external/MTS-ESP
