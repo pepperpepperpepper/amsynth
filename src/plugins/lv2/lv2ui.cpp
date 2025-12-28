@@ -69,6 +69,7 @@ struct ParameterListener final : public Parameter::Observer {
 struct lv2_ui {
 	PresetController presetController;
 	JuceIntegration juceIntegration;
+	juce::Component wrapper;
 	std::unique_ptr<MainComponent> mainComponent;
 	std::unique_ptr<ParameterListener> parameterListener;
 
@@ -200,14 +201,17 @@ lv2_ui_instantiate(const LV2UI_Descriptor*         /*descriptor*/,
 		if (touch) touch->touch(touch->handle, PORT_FIRST_PARAMETER + idx, grabbed);
 	});
 
+	double scaleFactor = ui->juceIntegration.getPluginScaleFactor();
 	ui->mainComponent = std::make_unique<MainComponent>(&ui->presetController);
 	ui->mainComponent->sendProperty = [ui] (const char *name, const char *value) {lv2helper(ui).send(name, value);};
-	ui->mainComponent->addToDesktop(juce::ComponentPeer::windowIgnoresKeyPresses, parent);
-	ui->mainComponent->setVisible(true);
+	ui->mainComponent->setTransform(juce::AffineTransform::scale(scaleFactor));
+	ui->wrapper.setOpaque(true);
+	ui->wrapper.setSize(ui->mainComponent->getWidth() * scaleFactor, ui->mainComponent->getHeight() * scaleFactor);
+	ui->wrapper.addAndMakeVisible(ui->mainComponent.get());
+	ui->wrapper.addToDesktop(juce::ComponentPeer::windowIgnoresKeyPresses, parent);
+	ui->wrapper.setVisible(true);
 	if (resize) {
-		auto bounds = ui->mainComponent->getScreenBounds();
-		auto scaleFactor = (int)juce::Desktop::getInstance().getGlobalScaleFactor();
-		resize->ui_resize(resize->handle, bounds.getWidth() * (int)scaleFactor, bounds.getHeight() * (int)scaleFactor);
+		resize->ui_resize(resize->handle, ui->wrapper.getWidth(), ui->wrapper.getHeight());
 	}
 	*widget = ui->mainComponent->getWindowHandle();
 
@@ -219,7 +223,7 @@ lv2_ui_instantiate(const LV2UI_Descriptor*         /*descriptor*/,
 static void
 lv2_ui_cleanup(LV2UI_Handle ui)
 {
-	((lv2_ui *)ui)->mainComponent->removeFromDesktop();
+	((lv2_ui *)ui)->wrapper.removeFromDesktop();
 	delete ((lv2_ui *)ui);
 }
 

@@ -28,5 +28,7 @@ public:
 	JuceIntegration();
 	~JuceIntegration();
 
+	double getPluginScaleFactor();
+
 	void idle();
 };

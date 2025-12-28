@@ -63,6 +63,34 @@ struct VstSysexEvent
 
 static thread_local bool isRenderThread;
 
+struct Editor : public juce::Component
+{
+	Editor(PresetController *presetController, double scaleFactor)
+	: main(presetController)
+	{
+		main.setTransform(juce::AffineTransform::scale(scaleFactor));
+		setSize(main.getWidth() * scaleFactor, main.getHeight() * scaleFactor);
+		addAndMakeVisible(main);
+		setOpaque(true); // CreateWindowEx will fail if not opaque
+	}
+
+	void getRect(short **outPtr)
+	{
+		rect[2] = getHeight();
+		rect[3] = getWidth();
+		*outPtr = rect;
+	}
+
+	void open(void *ptr)
+	{
+		addToDesktop(juce::ComponentPeer::windowIgnoresKeyPresses, ptr);
+		setVisible(true);
+	}
+
+	MainComponent main;
+	short rect[4] {};
+};
+
 struct Plugin final : public Parameter::Observer
 {
 	Plugin(AEffect *effect, audioMasterCallback master)
@@ -76,6 +104,20 @@ struct Plugin final : public Parameter::Observer
 	~Plugin()
 	{ 
 		delete synthesizer;
+	}
+
+	Editor *getEditor()
+	{
+		if (!editor) {
+			editor = std::make_unique<Editor>(synthesizer->getPresetController(), juceIntegration.getPluginScaleFactor());
+			for (const auto &it : synthesizer->getProperties()) {
+				editor->main.propertyChanged(it.first.c_str(), it.second.c_str());
+			}
+			editor->main.sendProperty = [synthesizer = synthesizer] (const char *name, const char *value) {
+				synthesizer->setProperty(name, value);
+			};
+		}
+		return editor.get();
 	}
 
 	void parameterDidChange(const Parameter &parameter) override
@@ -102,7 +144,7 @@ struct Plugin final : public Parameter::Observer
 	MidiInputAdaptor midiInput;
 	std::string chunk;
 	JuceIntegration juceIntegration;
-	std::unique_ptr<MainComponent> gui;
+	std::unique_ptr<Editor> editor;
 };
 
 static intptr_t dispatcher(AEffect *effect, int opcode, int index, intptr_t val, void *ptr, float f)
@@ -143,44 +185,24 @@ static intptr_t dispatcher(AEffect *effect, int opcode, int index, intptr_t val,
 		case effMainsChanged:
 			return 0;
 
-		case effEditGetRect: {
-			if (!plugin->gui) {
-				plugin->gui = std::make_unique<MainComponent>(plugin->synthesizer->_presetController);
-			}
-			static short rect[4] = {};
-			// There doesn't seem to be a way to determine which screen the host wants to open a plugin on and
-			// apply the correct scale factor in a multiscreen setup.
-			auto scaleFactor = juce::Desktop::getInstance().getGlobalScaleFactor();
-			auto bounds = plugin->gui->getScreenBounds();
-			rect[2] = bounds.getHeight() * scaleFactor;
-			rect[3] = bounds.getWidth() * scaleFactor;
-			*(short**)ptr = rect;
+		case effEditGetRect:
+			plugin->getEditor()->getRect((short **)ptr);
 			return 1;
-		}
-		case effEditOpen: {
-			if (!plugin->gui) {
-				plugin->gui = std::make_unique<MainComponent>(plugin->synthesizer->_presetController);
-			}
-			for (const auto &it : plugin->synthesizer->getProperties()) {
-				plugin->gui->propertyChanged(it.first.c_str(), it.second.c_str());
-			}
-			plugin->gui->sendProperty = [plugin] (const char *name, const char *value) {
-				plugin->synthesizer->setProperty(name, value);
-			};
-			assert(plugin->gui->isOpaque()); // CreateWindowEx will fail if not opaque
-			plugin->gui->addToDesktop(juce::ComponentPeer::windowIgnoresKeyPresses, ptr);
-			plugin->gui->setVisible(true);
+
+		case effEditOpen:
+			plugin->getEditor()->open(ptr);
 			return 1;
-		}
-		case effEditClose: {
-			plugin->gui->removeFromDesktop();
-			plugin->gui.reset();
+
+		case effEditClose:
+			if (plugin->editor) {
+				plugin->editor->removeFromDesktop();
+				plugin->editor.reset();
+			}
 			return 0;
-		}
-		case effEditIdle: {
+
+		case effEditIdle:
 			plugin->juceIntegration.idle();
 			return 0;
-		}
 
 		case effGetChunk:
 			plugin->chunk = plugin->synthesizer->getState();

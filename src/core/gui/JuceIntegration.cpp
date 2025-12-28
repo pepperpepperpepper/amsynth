@@ -36,27 +36,6 @@ namespace juce {
 extern bool dispatchNextMessageOnSystemQueue(bool returnIfNoPendingMessages);
 } // namespace juce
 
-float getGlobalScaleFactor() {
-#if JUCE_LINUX || JUCE_BSD
-	auto gdkScale = getenv("GDK_SCALE");
-	if (gdkScale) {
-		return (float)atoi(gdkScale);
-	}
-
-	auto *xSettings = juce::XWindowSystem::getInstance()->getXSettings();
-	if (xSettings) {
-		auto windowScalingFactorSetting = xSettings->getSetting(juce::XWindowSystem::getWindowScalingFactorSettingName());
-		if (windowScalingFactorSetting.isValid() && windowScalingFactorSetting.integerValue > 0)
-			return (float)windowScalingFactorSetting.integerValue;
-	}
-
-	return 1.f;
-#elif JUCE_WINDOWS
-	int dpi = GetDeviceCaps(GetDC(NULL), LOGPIXELSX);
-	return dpi / (float)USER_DEFAULT_SCREEN_DPI;
-#endif
-}
-
 #endif
 
 static int numInstances;
@@ -64,10 +43,6 @@ static int numInstances;
 JuceIntegration::JuceIntegration() {
 	if (numInstances++ == 0) {
 		juce::initialiseJuce_GUI();
-#if JUCE_LINUX || JUCE_BSD || JUCE_WINDOWS
-		auto scaleFactor = getGlobalScaleFactor();
-		juce::Desktop::getInstance().setGlobalScaleFactor(scaleFactor);
-#endif
 	}
 }
 
@@ -75,6 +50,30 @@ JuceIntegration::~JuceIntegration() {
 	if (--numInstances == 0) {
 		juce::shutdownJuce_GUI();
 	}
+}
+
+double JuceIntegration::getPluginScaleFactor() {
+#if JUCE_LINUX || JUCE_BSD
+	const char *scale = getenv("GDK_SCALE");
+	if (scale) {
+		return (double)atoi(scale);
+	}
+
+	auto x11 = juce::XWindowSystem::getInstance();
+	auto setting = x11->getXSettings()->getSetting("Gdk/WindowScalingFactor");
+	if (setting.isValid() && setting.integerValue > 1) {
+		return (double)setting.integerValue;
+	}
+
+	const char *xres = XGetDefault(x11->getDisplay(), "Xft", "dpi");
+	if (xres && atoi(xres) > 96) {
+		return atoi(xres) / 96.0;
+	}
+#elif JUCE_WINDOWS
+	int dpi = GetDeviceCaps(GetDC(NULL), LOGPIXELSX);
+	return dpi / (double)USER_DEFAULT_SCREEN_DPI;
+#endif
+	return 1.0;
 }
 
 void JuceIntegration::idle() {
