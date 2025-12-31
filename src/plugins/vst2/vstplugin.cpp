@@ -247,6 +247,8 @@ static intptr_t dispatcher(AEffect *effect, int opcode, int index, intptr_t val,
 		}
 
 		case effCanBeAutomated:
+			return 1;
+
 		case effGetOutputProperties:
 			return 0;
 

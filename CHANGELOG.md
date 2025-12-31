@@ -10,6 +10,7 @@
   - Removed support for JACK-Session, which is deprecated and unsupported.
   - Renamed `--force-device-scale-factor` to `--ui-scale` and added `ui_scale` to config file.
   - Fixed a memory leak in VST effGetChunk handler.
+  - Fixed parameters not automatable in VST plugin
   - Fixed unintentional distortion on some presets - issue #235
   - Fixed values passed to VST audioMasterAutomate.
   - Added Visual Studio project to allow building VST for Windows.
