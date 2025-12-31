@@ -25,4 +25,4 @@ CF_ENUM(AudioUnitPropertyID) {
 	kAudioUnitProperty_AmsynthProperties = 10000, // CFDictionaryRef
 };
 
-OSStatus GetCococaUI(AudioUnitCocoaViewInfo *);
+OSStatus GetCocoaUI(AudioUnitCocoaViewInfo *);

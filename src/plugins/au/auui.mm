@@ -164,7 +164,7 @@ __attribute__((objc_direct_members))
 
 @end
 
-OSStatus GetCococaUI(AudioUnitCocoaViewInfo *info)
+OSStatus GetCocoaUI(AudioUnitCocoaViewInfo *info)
 {
 	info->mCocoaAUViewBundleLocation = (CFURLRef)CFBridgingRetain([[NSBundle bundleForClass:[AmsynthAUCocoaUI class]] bundleURL]);
 	info->mCocoaAUViewClass[0] = CFSTR("AmsynthAUCocoaUI");

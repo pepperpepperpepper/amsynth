@@ -117,7 +117,7 @@ public:
 	{
 		switch (inID) {
 			case kAudioUnitProperty_CocoaUI:
-				return GetCococaUI(reinterpret_cast<AudioUnitCocoaViewInfo *>(outData));
+				return GetCocoaUI(reinterpret_cast<AudioUnitCocoaViewInfo *>(outData));
 
 			case kAudioUnitProperty_ParameterStringFromValue:
 				return GetParameterValueString(reinterpret_cast<AudioUnitParameterStringFromValue *>(outData));
