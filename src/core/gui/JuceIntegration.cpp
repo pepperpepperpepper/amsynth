@@ -25,17 +25,12 @@
 
 #include "juce_gui_basics/juce_gui_basics.h"
 
-#if JUCE_WINDOWS
-#include <Windows.h>
+#if JUCE_LINUX || JUCE_BSD
+#include "juce_audio_plugin_client/utility/juce_LinuxMessageThread.h"
 #endif
 
-#if JUCE_LINUX || JUCE_BSD || JUCE_WINDOWS
-
-namespace juce {
-// Implemented in juce_linux_Messaging.cpp / juce_win32_Messaging.cpp
-extern bool dispatchNextMessageOnSystemQueue(bool returnIfNoPendingMessages);
-} // namespace juce
-
+#if JUCE_WINDOWS
+#include <Windows.h>
 #endif
 
 static int numInstances;

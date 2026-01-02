@@ -75,6 +75,7 @@ libcore_la_SOURCES = \
 	external/freeverb/revmodel.cpp \
 	external/freeverb/revmodel.hpp \
 	external/freeverb/tuning.h \
+	external/JUCE/modules/juce_audio_plugin_client/utility/juce_LinuxMessageThread.h \
 	external/JUCE/modules/juce_core/juce_core.cpp \
 	external/JUCE/modules/juce_data_structures/juce_data_structures.cpp \
 	external/JUCE/modules/juce_events/juce_events.cpp \
