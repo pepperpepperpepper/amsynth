@@ -72,7 +72,7 @@ double JuceIntegration::getPluginScaleFactor() {
 }
 
 void JuceIntegration::idle() {
-#if JUCE_LINUX || JUCE_BSD || JUCE_WINDOWS
+#if JUCE_LINUX || JUCE_BSD
 	juce::dispatchNextMessageOnSystemQueue(true);
 #endif
 }
