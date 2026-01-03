@@ -26,7 +26,6 @@
 #define JUCE_GUI_BASICS_INCLUDE_XHEADERS 1
 
 #include "ardour/vestige.h"
-#include "core/midi.h"
 #include "core/gui/MainComponent.h"
 #include "core/gui/JuceIntegration.h"
 #include "core/synth/PresetController.h"
@@ -38,7 +37,6 @@
 
 #include <cassert>
 #include <cstdlib>
-#include <cstdio>
 #include <cstring>
 #include <memory>
 
@@ -66,8 +64,6 @@ struct VstSysexEvent
 	void *data;
 	void *reserved2;
 };
-
-static thread_local bool isRenderThread;
 
 struct Editor : public juce::Component
 {
