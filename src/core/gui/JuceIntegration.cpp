@@ -73,6 +73,9 @@ double JuceIntegration::getPluginScaleFactor() {
 
 void JuceIntegration::idle() {
 #if JUCE_LINUX || JUCE_BSD
-	juce::dispatchNextMessageOnSystemQueue(true);
+	juce::MessageManager::getInstance()->setCurrentThreadAsMessageThread();
+	for (;;)
+		if (!juce::dispatchNextMessageOnSystemQueue(true))
+			return;
 #endif
 }

@@ -31,10 +31,6 @@
 #include "core/synth/PresetController.h"
 #include "core/synth/Synthesizer.h"
 
-#if JUCE_LINUX || JUCE_BSD
-#include "juce_audio_plugin_client/utility/juce_LinuxMessageThread.h"
-#endif
-
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
@@ -70,9 +66,6 @@ struct Editor : public juce::Component
 	Editor(PresetController *presetController, double scaleFactor)
 	: main(presetController)
 	{
-#if JUCE_LINUX || JUCE_BSD
-		juce::SharedResourcePointer<juce::HostDrivenEventLoop> hostDrivenEventLoop;
-#endif
 		main.setTransform(juce::AffineTransform::scale(scaleFactor));
 		setSize(main.getWidth() * scaleFactor, main.getHeight() * scaleFactor);
 		addAndMakeVisible(main);
@@ -88,16 +81,10 @@ struct Editor : public juce::Component
 
 	void open(void *ptr)
 	{
-#if JUCE_LINUX || JUCE_BSD
-		juce::SharedResourcePointer<juce::HostDrivenEventLoop> hostDrivenEventLoop;
-#endif
 		addToDesktop(juce::ComponentPeer::windowIgnoresKeyPresses, ptr);
 		setVisible(true);
 	}
 
-#if JUCE_LINUX || JUCE_BSD
-	juce::SharedResourcePointer<juce::MessageThread> messageThread;
-#endif
 	MainComponent main;
 	short rect[4] {};
 };
@@ -211,13 +198,9 @@ static intptr_t dispatcher(AEffect *effect, int opcode, int index, intptr_t val,
 			}
 			return 0;
 
-		case effEditIdle: {
-#if JUCE_LINUX || JUCE_BSD
-			juce::SharedResourcePointer<juce::HostDrivenEventLoop> hostDrivenEventLoop;
-			hostDrivenEventLoop->processPendingEvents();
-#endif
+		case effEditIdle:
+			plugin->juceIntegration.idle();
 			return 0;
-		}
 
 		case effGetChunk:
 			plugin->chunk = plugin->synthesizer->getState();
