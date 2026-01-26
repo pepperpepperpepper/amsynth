@@ -267,8 +267,6 @@ endif
 #
 #
 
-dist_pkgdata_DATA = data/rc
-
 appicon48dir=$(datadir)/icons/hicolor/48x48/apps
 appicon48_DATA=data/icons/48x48/amsynth.png
 

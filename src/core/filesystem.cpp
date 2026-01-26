@@ -70,10 +70,8 @@ filesystem::filesystem()
         move(home + "/.amSynthControllersrc", controllers);
     }
 
-    if (!exists(config) &&
-        !move(home + "/.amSynthrc", config) &&
-        !copy(PKGDATADIR "/rc", config)) {
-        std::cerr << "Error: could not create " << controllers << std::endl;
+    if (!exists(config)) {
+	move(home + "/.amSynthrc", config);
     }
 
     if (!exists(amsynth_data_dir) &&

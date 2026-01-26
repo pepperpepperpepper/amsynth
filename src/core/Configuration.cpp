@@ -61,6 +61,7 @@ Configuration::Defaults	()
 	buffer_size = 128;
 	polyphony = 10;
 	pitch_bend_range = 2;
+	locked_parameters.clear();
 	jack_autoconnect = true;
 	ui_scale = 0.0;
 	jack_client_name_preference = "amsynth";
@@ -71,61 +72,50 @@ Configuration::Defaults	()
 int
 Configuration::load	()
 {
-	std::string buffer;
+	std::ifstream file(amsynthrc_fname.c_str());
+	if (!file) {
+		return -1;
+	}
 
-	std::fstream file( amsynthrc_fname.c_str(), std::ios::in );
-	while( file.good() ) {
-		file >> buffer;
-		if( buffer[0]=='#' ){
-			// ignore lines beginning with '#' (comments)
-			// this next line is needed to deal with a line with 
-			// just a '#'
-			file.unget();
-			// this moves file on by a whole line, so we ignore it
-			getline(file, buffer);
+	std::string line;
+	while (std::getline(file, line)) {
+		std::istringstream istr(line);
+		std::string buffer;
+		istr >> buffer;
+		if (!buffer.empty() && buffer[0] == '#') {
+			continue;
 		} else if (buffer=="audio_driver"){
-			file >> buffer;
-			audio_driver = buffer;
+			istr >> audio_driver;
 		} else if (buffer=="midi_driver"){
-			file >> buffer;
-			midi_driver = buffer;
+			istr >> midi_driver;
 		} else if (buffer=="oss_midi_device"){
-			file >> buffer;
-			oss_midi_device = buffer;
+			istr >> oss_midi_device;
 		} else if (buffer=="midi_channel"){
-			file >> buffer;
-			std::istringstream(buffer) >> midi_channel;
+			istr >> midi_channel;
 		} else if (buffer=="oss_audio_device"){
-			file >> buffer;
-			oss_audio_device = buffer;
+			istr >> oss_audio_device;
 		} else if (buffer=="alsa_audio_device"){
-			file >> buffer;
-			alsa_audio_device = buffer;
+			istr >> alsa_audio_device;
 		} else if (buffer=="sample_rate"){
-			file >> buffer;
-			std::istringstream(buffer) >> sample_rate;
+			istr >> sample_rate;
 		} else if (buffer=="polyphony"){
-			file >> buffer;
-			std::istringstream(buffer) >> polyphony;
+			istr >> polyphony;
 		} else if (buffer=="pitch_bend_range"){
-			file >> buffer;
-			std::istringstream(buffer) >> pitch_bend_range;
+			istr >> pitch_bend_range;
 		} else if (buffer=="tuning_file") {
-			file >> buffer;
-			current_tuning_file = buffer;
-		} else if (buffer == "ignored_parameters") {
-			file >> buffer;
-			locked_parameters = buffer;
-		} else if (buffer == "jack_autoconnect") {
-			file >> buffer;
+			istr >> current_tuning_file;
+		} else if (buffer == "ignored_parameters" || buffer == "locked_parameters") {
+			locked_parameters.clear();
+			while (istr >> buffer) {
+				locked_parameters += buffer;
+				locked_parameters += " ";
+			}
+		} else if (buffer == "jack_autoconnect" && istr >> buffer) {
 			jack_autoconnect = (buffer == "true");
-		} else if (buffer == "ui_scale") {
-			file >> buffer;
+		} else if (buffer == "ui_scale" && istr >> buffer) {
 			std::istringstream istr(buffer);
 			istr.imbue(std::locale::classic());
 			istr >> ui_scale;
-		} else {
-			file >> buffer;
 		}
 	}
 	file.close();
@@ -136,20 +126,50 @@ Configuration::load	()
 int
 Configuration::save	()
 {
-	FILE *fout = fopen (amsynthrc_fname.c_str(), "w"); if (nullptr == fout) return -1;
-	fprintf (fout, "midi_driver\t%s\n", midi_driver.c_str());
-	fprintf (fout, "oss_midi_device\t%s\n", oss_midi_device.c_str());
-	fprintf (fout, "midi_channel\t%d\n", midi_channel);
-	fprintf (fout, "audio_driver\t%s\n", audio_driver.c_str());
-	fprintf (fout, "oss_audio_device\t%s\n", oss_audio_device.c_str());
-	fprintf (fout, "alsa_audio_device\t%s\n", alsa_audio_device.c_str());
-	fprintf (fout, "sample_rate\t%d\n", sample_rate);
-	fprintf (fout, "polyphony\t%d\n", polyphony);
-	fprintf (fout, "pitch_bend_range\t%d\n", pitch_bend_range);
-	fprintf (fout, "tuning_file\t%s\n", current_tuning_file.c_str());
-	fprintf (fout, "ignored_parameters\t%s\n", locked_parameters.c_str());
-	fprintf (fout, "jack_autoconnect\t%s\n", jack_autoconnect ? "true" : "false");
-	fprintf (fout, "ui_scale\t%s\n", to_string(ui_scale).c_str());
+	FILE *fout = fopen (amsynthrc_fname.c_str(), "w");
+	if (nullptr == fout)
+		return -1;
+
+	fprintf (fout, "# Audio device type [auto | jack | alsa-mmap | alsa | oss]\n");
+	fprintf (fout, "# \"jack\" is best for low latency and interoperability\n");
+	fprintf (fout, "audio_driver %s\n\n", audio_driver.c_str());
+
+	fprintf (fout, "# ALSA: PCM device name, e.g. hw:0\n");
+	fprintf (fout, "alsa_audio_device %s\n\n", alsa_audio_device.c_str());
+
+	fprintf (fout, "# OSS: audio device path, e.g. /dev/dsp\n");
+	fprintf (fout, "oss_audio_device %s\n\n", oss_audio_device.c_str());
+
+	fprintf (fout, "# JACK: automatically connect to first physical audio outputs & all MIDI inputs [true | false]\n");
+	fprintf (fout, "jack_autoconnect %s\n\n", jack_autoconnect ? "true" : "false");
+
+	fprintf (fout, "# Audio sampling rate when using ALSA or OSS)\n");
+	fprintf (fout, "sample_rate %d\n\n", sample_rate);
+
+	fprintf (fout, "# MIDI device type [auto | alsa | oss]\n");
+	fprintf (fout, "midi_driver %s\n\n", midi_driver.c_str());
+
+	fprintf (fout, "# MIDI channel for input & output [1 - 16 | 0 (all channels)]\n");
+	fprintf (fout, "midi_channel %d\n\n", midi_channel);
+
+	fprintf (fout, "# OSS: MIDI device path, e.g. /dev/midi\n");
+	fprintf (fout, "oss_midi_device %s\n\n", oss_midi_device.c_str());
+
+	fprintf (fout, "# Maximum polyphony (0 = unlimited)\n");
+	fprintf (fout, "polyphony %d\n\n", polyphony);
+
+	fprintf (fout, "# Pitch bend range in semitones\n");
+	fprintf (fout, "pitch_bend_range %d\n\n", pitch_bend_range);
+
+	fprintf (fout, "# Tuning file\n");
+	fprintf (fout, "tuning_file %s\n\n", current_tuning_file.c_str());
+
+	fprintf (fout, "# Parameter names that should be locked during preset load\n");
+	fprintf (fout, "locked_parameters %s\n\n", locked_parameters.c_str());
+
+	fprintf (fout, "# Additional UI scaling factor\n");
+	fprintf (fout, "ui_scale %s\n\n", to_string(ui_scale).c_str());
+
 	fclose (fout);
 	return 0;
 }
