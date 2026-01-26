@@ -147,8 +147,7 @@ Parameter::valueFromString(const std::string &str)
 	// atof() and friends are affected by currently configured locale,
 	// which can change the decimal point character.
 	std::istringstream istr(str);
-	static std::locale locale = std::locale("C");
-	istr.imbue(locale);
+	istr.imbue(std::locale::classic());
 	float value = m::nan;
 	istr >> value;
 	return value;

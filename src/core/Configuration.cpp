@@ -28,6 +28,14 @@
 #include <cstdlib>
 #include <sstream>
 
+static std::string to_string(double value)
+{
+	std::ostringstream ostr;
+	ostr.imbue(std::locale::classic());
+	ostr << value;
+	return ostr.str();
+}
+
 Configuration::Configuration()
 {
 	amsynthrc_fname = filesystem::get().config;
@@ -113,7 +121,9 @@ Configuration::load	()
 			jack_autoconnect = (buffer == "true");
 		} else if (buffer == "ui_scale") {
 			file >> buffer;
-			std::istringstream(buffer) >> ui_scale;
+			std::istringstream istr(buffer);
+			istr.imbue(std::locale::classic());
+			istr >> ui_scale;
 		} else {
 			file >> buffer;
 		}
@@ -139,7 +149,7 @@ Configuration::save	()
 	fprintf (fout, "tuning_file\t%s\n", current_tuning_file.c_str());
 	fprintf (fout, "ignored_parameters\t%s\n", locked_parameters.c_str());
 	fprintf (fout, "jack_autoconnect\t%s\n", jack_autoconnect ? "true" : "false");
-	fprintf (fout, "ui_scale\t%f\n", ui_scale);
+	fprintf (fout, "ui_scale\t%s\n", to_string(ui_scale).c_str());
 	fclose (fout);
 	return 0;
 }
