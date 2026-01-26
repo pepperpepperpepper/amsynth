@@ -1,5 +1,5 @@
 /*
- *  Synthesizer.cpp
+ *  Synthesizer.h
  *
  *  Copyright (c) 2014 Nick Dowell
  *
