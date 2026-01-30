@@ -35,6 +35,25 @@
 #include "MTS-ESP/Client/libMTSClient.h"
 #endif
 
+class Synthesizer::PresetObserver final : public PresetController::Observer {
+public:
+	explicit PresetObserver(Synthesizer *synthesizer)
+	: synthesizer_(synthesizer) {}
+
+	void currentPresetDidChange() final {
+		auto &preset = synthesizer_->_presetController->getCurrentPreset();
+
+		std::string value;
+		if (preset.getProperty(PROP_NAME(tuning_scl_file), &value))
+			synthesizer_->setProperty(PROP_NAME(tuning_scl_file), value.c_str());
+		if (preset.getProperty(PROP_NAME(tuning_kbm_file), &value))
+			synthesizer_->setProperty(PROP_NAME(tuning_kbm_file), value.c_str());
+	}
+
+private:
+	Synthesizer *synthesizer_;
+};
+
 
 Synthesizer::Synthesizer()
 : _sampleRate(-1)
@@ -47,6 +66,9 @@ Synthesizer::Synthesizer()
 
 	_presetController = new PresetController;
 	_presetController->getCurrentPreset().addObserver(_voiceAllocationUnit);
+	presetObserver_ = new PresetObserver(this);
+	_presetController->addObserver(presetObserver_);
+	_presetController->notify(); // apply per-preset properties for initial selection
 	for (const auto &bank : PresetController::getPresetBanks()) {
 		if (bank.file_path == _presetController->getFilePath()) {
 			propertyStore_[PROP_NAME(preset_bank_name)] = bank.name;
@@ -64,6 +86,8 @@ Synthesizer::Synthesizer()
 Synthesizer::~Synthesizer()
 {
 	delete _midiController;
+	_presetController->removeObserver(presetObserver_);
+	delete presetObserver_;
 	delete _presetController;
 	delete _voiceAllocationUnit;
 }
@@ -84,11 +108,17 @@ void Synthesizer::setProperty(const char *name, const char *value)
 	if (name == std::string(PROP_NAME(pitch_bend_range)))
 		setPitchBendRangeSemitones(std::stoi(value));
 
-	if (name == std::string(PROP_NAME(tuning_kbm_file)))
-		loadTuningKeymap(value);
+	if (name == std::string(PROP_NAME(tuning_kbm_file))) {
+		auto result = loadTuningKeymap(value);
+		if (result == 0)
+			_presetController->getCurrentPreset().setProperty(PROP_NAME(tuning_kbm_file), value ? value : "");
+	}
 
-	if (name == std::string(PROP_NAME(tuning_scl_file)))
-		loadTuningScale(value);
+	if (name == std::string(PROP_NAME(tuning_scl_file))) {
+		auto result = loadTuningScale(value);
+		if (result == 0)
+			_presetController->getCurrentPreset().setProperty(PROP_NAME(tuning_scl_file), value ? value : "");
+	}
 	
 #ifdef WITH_MTS_ESP
 	if (name == std::string(PROP_NAME(tuning_mts_esp_disabled)))
@@ -99,6 +129,8 @@ void Synthesizer::setProperty(const char *name, const char *value)
 std::map<std::string, std::string> Synthesizer::getProperties()
 {
 	auto props = propertyStore_;
+	props.erase(PROP_NAME(tuning_kbm_file));
+	props.erase(PROP_NAME(tuning_scl_file));
 	props[PROP_NAME(max_polyphony)] = std::to_string(getMaxNumVoices());
 	props[PROP_NAME(midi_channel)] = std::to_string(getMidiChannel());
 	props[PROP_NAME(pitch_bend_range)] = std::to_string(getPitchBendRangeSemitones());
@@ -142,6 +174,9 @@ void Synthesizer::setState(const std::string &buffer)
 			setProperty(key.c_str(), value.c_str());
 		}
 	}
+
+	// Apply per-preset properties (e.g. tuning) after global properties.
+	_presetController->notify();
 }
 
 std::string Synthesizer::getState()

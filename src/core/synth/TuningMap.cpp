@@ -36,6 +36,7 @@ TuningMap::TuningMap		()
 void
 TuningMap::defaultScale		()
 {
+	scaleFile.clear();
 	scale.clear();
 	for (int i = 1; i <= 12; ++i)
 		scale.push_back(pow(2., i/12.));
@@ -45,6 +46,7 @@ TuningMap::defaultScale		()
 void
 TuningMap::defaultKeyMap	()
 {
+	keyMapFile.clear();
 	zeroNote = 0;
 	refNote = 69;
 	refPitch = 440.;
@@ -299,6 +301,8 @@ TuningMap::loadKeyMap		(const std::string & filename)
 		refNote = newRefNote;
 		refPitch = newRefPitch;
 		mapRepeatInc = 1;
+		if (!rangeDeclared)
+			activateRange(0, 127);
 		mapping.clear();
 		mapping.push_back(0);
 		updateBasePitch();
@@ -331,7 +335,7 @@ TuningMap::loadKeyMap		(const std::string & filename)
 		activateRange(0, 127);
 
 	mapping = newMapping;
+	keyMapFile = filename;
 	updateBasePitch();
 	return 0;
 }
-

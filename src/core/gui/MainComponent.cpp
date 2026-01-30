@@ -551,8 +551,10 @@ bool MainComponent::perform(const InvocationInfo &info) {
 			juce::SystemClipboard::copyTextToClipboard(presetController->getCurrentPreset().toString());
 			break;
 		case juce::StandardApplicationCommandIDs::paste:
-			if (presetController->getCurrentPreset().fromString(juce::SystemClipboard::getTextFromClipboard().toStdString()))
+			if (presetController->getCurrentPreset().fromString(juce::SystemClipboard::getTextFromClipboard().toStdString())) {
 				impl_->updatePresetComboLabelText();
+				presetController->notify();
+			}
 			break;
 		case juce::StandardApplicationCommandIDs::undo:
 			presetController->undoChange();

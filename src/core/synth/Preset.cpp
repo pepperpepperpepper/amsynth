@@ -54,6 +54,7 @@ Preset::operator =		(const Preset &rhs)
 		getParameter(i).setValue(rhs.getParameter(i).getValue());
     }
     setName(rhs.getName());
+	mProperties = rhs.mProperties;
     return *this;
 }
 
@@ -66,7 +67,22 @@ Preset::isEqual(const Preset &rhs)
 		if (getParameter(i).getNormalisedValue() != rhs.getParameter(i).getNormalisedValue())
 			return false;
 	}
-	return getName() == rhs.getName();
+	return getName() == rhs.getName() && mProperties == rhs.mProperties;
+}
+
+bool Preset::getProperty(const std::string &key, std::string *value) const
+{
+	auto it = mProperties.find(key);
+	if (it == mProperties.end())
+		return false;
+	if (value)
+		*value = it->second;
+	return true;
+}
+
+void Preset::setProperty(const std::string &key, const std::string &value)
+{
+	mProperties[key] = value;
 }
 
 Parameter & 
@@ -108,11 +124,28 @@ Preset::toString(std::stringstream &stream)
 	for (int n = 0; n < kAmsynthParameterCount; n++) {
 		stream << "<parameter> " << getParameter(n).getName() << " " << getParameter(n).getValue() << std::endl;
 	}
+
+	static constexpr std::array<const char *, 2> keys = {
+		"tuning_scl_file",
+		"tuning_kbm_file",
+	};
+
+	for (auto key : keys) {
+		auto it = mProperties.find(key);
+		if (it == mProperties.end())
+			continue;
+		stream << "<property> " << key;
+		if (!it->second.empty())
+			stream << " " << it->second;
+		stream << std::endl;
+	}
 }
 
 bool
 Preset::fromString(const std::string &str)
 {
+	mProperties.clear();
+
 	std::stringstream stream (str);
 
 	std::string buffer;
@@ -146,6 +179,21 @@ Preset::fromString(const std::string &str)
 			if (name!="unused")
 				getParameter(name).setValue(Parameter::valueFromString(buffer));
 			stream >> buffer;
+		}
+
+		// get the per-preset properties
+		while (buffer == "<property>") {
+			std::string key, value;
+			stream >> key;
+			std::getline(stream, value); // value may contain whitespace
+			if (!value.empty() && value[0] == ' ')
+				value.erase(0, 1);
+
+			if (key == "tuning_scl_file" || key == "tuning_kbm_file")
+				setProperty(key, value);
+
+			if (!(stream >> buffer))
+				break;
 		}
 	};
 	return true;

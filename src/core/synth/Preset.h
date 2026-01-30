@@ -24,6 +24,7 @@
 
 #include "Parameter.h"
 
+#include <map>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -41,6 +42,12 @@ public:
 
 	const std::string& getName		() const { return mName; }
 	void			setName			(const std::string name) { mName = name; }
+
+	using Properties = std::map<std::string, std::string>;
+	const Properties &getProperties() const { return mProperties; }
+	bool			getProperty		(const std::string &key, std::string *value) const;
+	void			setProperty		(const std::string &key, const std::string &value);
+	void			clearProperty	(const std::string &key) { mProperties.erase(key); }
 	
 	Parameter&		getParameter	(const std::string name);
 	Parameter&		getParameter	(const int no) { return mParameters.at(no); };
@@ -63,6 +70,7 @@ public:
 private:
     std::string				mName;
 	std::vector<Parameter>	mParameters;
+	Properties				mProperties;
 };
 
 #endif
