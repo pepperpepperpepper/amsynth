@@ -30,9 +30,42 @@
 
 #include <cassert>
 #include <cstdio>
+#include <fstream>
 #include <iostream>
 
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
 #define TEST(name) static void name()
+
+static std::string writeTempFile(const char *suffix, const std::string &contents)
+{
+#ifdef _WIN32
+    char buffer[L_tmpnam];
+    assert(std::tmpnam(buffer));
+    auto path = std::string(buffer) + (suffix ? suffix : "");
+#else
+    char pattern[] = "/tmp/amsynth-tests-XXXXXX";
+    const int fd = mkstemp(pattern);
+    assert(fd != -1);
+    close(fd);
+
+    auto path = std::string(pattern);
+    if (suffix && *suffix) {
+        const auto pathWithSuffix = path + suffix;
+        assert(std::rename(path.c_str(), pathWithSuffix.c_str()) == 0);
+        path = pathWithSuffix;
+    }
+#endif
+
+    std::ofstream file(path, std::ios::out | std::ios::trunc);
+    assert(file.is_open());
+    file << contents;
+    file.close();
+
+    return path;
+}
 
 TEST(testMidiOutput) {
     static float audioBuffer[64];
@@ -201,6 +234,121 @@ TEST(testOscillatorHighFrequency) {
     }
 }
 
+TEST(testPresetTuningPropertiesRoundTrip) {
+    Preset preset("Tuning Test");
+    preset.setProperty(PROP_NAME(tuning_scl_file), "/path/to/test.scl");
+    preset.setProperty(PROP_NAME(tuning_kbm_file), "");
+
+    Preset restored;
+    assert(restored.fromString(preset.toString()));
+
+    std::string value;
+    assert(restored.getProperty(PROP_NAME(tuning_scl_file), &value));
+    assert(value == "/path/to/test.scl");
+    assert(restored.getProperty(PROP_NAME(tuning_kbm_file), &value));
+    assert(value.empty());
+}
+
+TEST(testBankTuningPropertiesRoundTrip) {
+    PresetController presetController;
+    for (int i = 0; i < PresetController::kNumPresets; i++) {
+        presetController.getPreset(i).setName("unused");
+    }
+
+    auto &preset = presetController.getPreset(0);
+    preset.setName("Bank Test");
+    preset.setProperty(PROP_NAME(tuning_scl_file), "/path/to/bank.scl");
+    preset.setProperty(PROP_NAME(tuning_kbm_file), "/path/to/bank.kbm");
+
+    auto bankPath = writeTempFile(".bank", "");
+    assert(presetController.savePresets(bankPath.c_str()) == 0);
+
+    PresetController restoredController;
+    assert(restoredController.loadPresets(bankPath.c_str()) == 0);
+
+    auto &restored = restoredController.getPreset(0);
+    std::string value;
+    assert(restored.getName() == "Bank Test");
+    assert(restored.getProperty(PROP_NAME(tuning_scl_file), &value));
+    assert(value == "/path/to/bank.scl");
+    assert(restored.getProperty(PROP_NAME(tuning_kbm_file), &value));
+    assert(value == "/path/to/bank.kbm");
+
+    std::remove(bankPath.c_str());
+}
+
+TEST(testTuningAppliedOnPresetRecall) {
+    auto sclPath = writeTempFile(".scl",
+                                 "! test.scl\n"
+                                 "test\n"
+                                 "1\n"
+                                 "2/1\n");
+    auto kbmPath = writeTempFile(".kbm",
+                                 "! test.kbm\n"
+                                 "0\n"
+                                 "0\n"
+                                 "127\n"
+                                 "0\n"
+                                 "69\n"
+                                 "440.0\n"
+                                 "0\n");
+
+    Synthesizer synth;
+    auto *presetController = synth.getPresetController();
+
+    presetController->getPreset(0).setProperty(PROP_NAME(tuning_scl_file), sclPath);
+    presetController->getPreset(0).setProperty(PROP_NAME(tuning_kbm_file), kbmPath);
+    presetController->getPreset(1).clearProperty(PROP_NAME(tuning_scl_file));
+    presetController->getPreset(1).clearProperty(PROP_NAME(tuning_kbm_file));
+
+    presetController->selectPreset(0);
+    assert(synth._voiceAllocationUnit->tuningMap.getScaleFile() == sclPath);
+    assert(synth._voiceAllocationUnit->tuningMap.getKeyMapFile() == kbmPath);
+
+    presetController->selectPreset(1);
+    // No tuning override: should not change current tuning.
+    assert(synth._voiceAllocationUnit->tuningMap.getScaleFile() == sclPath);
+    assert(synth._voiceAllocationUnit->tuningMap.getKeyMapFile() == kbmPath);
+
+    presetController->getPreset(1).setProperty(PROP_NAME(tuning_scl_file), "");
+    presetController->getPreset(1).setProperty(PROP_NAME(tuning_kbm_file), "");
+    presetController->selectPreset(1);
+    // Explicit reset: should reset tuning to default.
+    assert(synth._voiceAllocationUnit->tuningMap.getScaleFile().empty());
+    assert(synth._voiceAllocationUnit->tuningMap.getKeyMapFile().empty());
+
+    std::remove(sclPath.c_str());
+    std::remove(kbmPath.c_str());
+}
+
+TEST(testTuningEditsCapturedInPreset) {
+    auto sclPath = writeTempFile(".scl",
+                                 "! test.scl\n"
+                                 "test\n"
+                                 "1\n"
+                                 "2/1\n");
+
+    Synthesizer synth;
+    auto *presetController = synth.getPresetController();
+
+    presetController->getPreset(0).clearProperty(PROP_NAME(tuning_scl_file));
+    presetController->selectPreset(0);
+
+    synth.setProperty(PROP_NAME(tuning_scl_file), sclPath.c_str());
+
+    std::string value;
+    assert(presetController->getCurrentPreset().getProperty(PROP_NAME(tuning_scl_file), &value));
+    assert(value == sclPath);
+    assert(presetController->isCurrentPresetModified());
+
+    presetController->commitPreset();
+    assert(!presetController->isCurrentPresetModified());
+    assert(presetController->getPreset(0).getProperty(PROP_NAME(tuning_scl_file), &value));
+    assert(value == sclPath);
+
+    std::remove(sclPath.c_str());
+}
+
 #define RUN_TEST(testFunction) do { printf("%s()... ", #testFunction); testFunction(); printf("OK\n"); } while (0)
 
 int main(int argc, const char * argv[])  {
@@ -210,5 +358,9 @@ int main(int argc, const char * argv[])  {
     RUN_TEST(testPresetValueStrings);
     RUN_TEST(testMidiAllNotesOff);
     RUN_TEST(testOscillatorHighFrequency);
+    RUN_TEST(testPresetTuningPropertiesRoundTrip);
+    RUN_TEST(testBankTuningPropertiesRoundTrip);
+    RUN_TEST(testTuningAppliedOnPresetRecall);
+    RUN_TEST(testTuningEditsCapturedInPreset);
     return 0;
 }

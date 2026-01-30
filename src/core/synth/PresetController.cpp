@@ -228,6 +228,20 @@ PresetController::savePresets		(const char *filename)
 				<< presets[i].getParameter(n).getName()
 				<< " " << presets[i].getParameter(n).getValue() << "\n";
 			}
+
+			std::string value;
+			if (presets[i].getProperty("tuning_scl_file", &value)) {
+				file << "<property> tuning_scl_file";
+				if (!value.empty())
+					file << " " << value;
+				file << "\n";
+			}
+			if (presets[i].getProperty("tuning_kbm_file", &value)) {
+				file << "<property> tuning_kbm_file";
+				if (!value.empty())
+					file << " " << value;
+				file << "\n";
+			}
 		}
 	}
 	file << "EOF" << std::endl;
@@ -349,6 +363,27 @@ static bool readBankFile(const char *filename, Preset *presets)
 					float fval = float_from_string(sep + 1);
 					param.setValue(fval);
 				}
+			}
+
+			static char property_prefix[] = "<property> ";
+			if (strncmp(line_ptr, property_prefix, sizeof(property_prefix) - 1) == 0) {
+				if (preset_index < 0) {
+					line_ptr = end_ptr;
+					continue;
+				}
+				char *ptr = line_ptr + sizeof(property_prefix) - 1;
+				char *sep = strchr(ptr, ' ');
+				std::string key;
+				std::string value;
+				if (sep) {
+					key = std::string(ptr, sep - ptr);
+					value = std::string(sep + 1);
+				} else {
+					key = std::string(ptr);
+				}
+
+				if (key == "tuning_scl_file" || key == "tuning_kbm_file")
+					presets[preset_index].setProperty(key, value);
 			}
 
 			line_ptr = end_ptr;

@@ -116,6 +116,9 @@ public:
 	
 private:
 
+	class PresetObserver;
+	PresetObserver *presetObserver_ {nullptr};
+
 	bool needsResetAllVoices_ = false;
 	Properties propertyStore_;
 };
