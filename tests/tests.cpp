@@ -29,6 +29,7 @@
 #include "core/synth/VoiceBoard.h"
 
 #include <cassert>
+#include <cmath>
 #include <cstdio>
 #include <fstream>
 #include <iostream>
@@ -349,6 +350,48 @@ TEST(testTuningEditsCapturedInPreset) {
     std::remove(sclPath.c_str());
 }
 
+TEST(testHzModeIgnoresMidiNotes) {
+    static float audioBuffer[64];
+
+    Synthesizer synth;
+    synth.setSampleRate(44100);
+    synth.setHzModeEnabled(true);
+
+    std::vector<amsynth_midi_event_t> midiIn;
+    std::vector<amsynth_midi_cc_t> midiOut;
+
+    unsigned char midi[4] = { MIDI_STATUS_NOTE_ON, 64, 100 };
+    amsynth_midi_event_t e = { 0, 3, midi };
+    midiIn.push_back(e);
+
+    synth.process(32, midiIn, midiOut, &audioBuffer[0], &audioBuffer[32]);
+    assert(countActiveVoices(&synth) == 0);
+}
+
+TEST(testHzInputGateAndPitch) {
+    static float audioBuffer[64];
+
+    Synthesizer synth;
+    synth.setSampleRate(44100);
+    synth.setHzModeEnabled(true);
+
+    std::vector<amsynth_midi_event_t> midiIn;
+    std::vector<amsynth_midi_cc_t> midiOut;
+
+    synth.setHzInput(440.0f, 1.0f, 1.0f);
+    synth.process(32, midiIn, midiOut, &audioBuffer[0], &audioBuffer[32]);
+    assert(synth._voiceAllocationUnit->active[0]);
+    assert(std::fabs(synth._voiceAllocationUnit->_voices[0]->getFrequency() - 440.0f) < 1e-3f);
+
+    synth.setHzInput(880.0f, 1.0f, 1.0f);
+    synth.process(32, midiIn, midiOut, &audioBuffer[0], &audioBuffer[32]);
+    assert(std::fabs(synth._voiceAllocationUnit->_voices[0]->getFrequency() - 880.0f) < 1e-3f);
+
+    synth.setHzInput(880.0f, 0.0f, 1.0f);
+    synth.process(32, midiIn, midiOut, &audioBuffer[0], &audioBuffer[32]);
+    assert(!synth._voiceAllocationUnit->keyPressed[0]);
+}
+
 #define RUN_TEST(testFunction) do { printf("%s()... ", #testFunction); testFunction(); printf("OK\n"); } while (0)
 
 int main(int argc, const char * argv[])  {
@@ -362,5 +405,7 @@ int main(int argc, const char * argv[])  {
     RUN_TEST(testBankTuningPropertiesRoundTrip);
     RUN_TEST(testTuningAppliedOnPresetRecall);
     RUN_TEST(testTuningEditsCapturedInPreset);
+    RUN_TEST(testHzModeIgnoresMidiNotes);
+    RUN_TEST(testHzInputGateAndPitch);
     return 0;
 }

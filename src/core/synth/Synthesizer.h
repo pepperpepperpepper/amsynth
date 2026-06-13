@@ -97,6 +97,10 @@ public:
 	int loadTuningKeymap(const char *filename);
 	int loadTuningScale(const char *filename);
 
+	void setHzModeEnabled(bool enabled);
+	bool isHzModeEnabled() const { return hzModeEnabled_; }
+	void setHzInput(float frequencyHz, float gate, float velocity);
+
 	void setSampleRate(int sampleRate);
 
 	void process(unsigned nframes,
@@ -121,6 +125,13 @@ private:
 
 	bool needsResetAllVoices_ = false;
 	Properties propertyStore_;
+
+	bool hzModeEnabled_ = false;
+	bool hzGateInput_ = false;
+	bool hzGateActive_ = false;
+	float hzFrequency_ = 0.0f;
+	float hzVelocity_ = 0.0f;
+	float hzAppliedFrequency_ = 0.0f;
 };
 
 struct MidiInputAdaptor

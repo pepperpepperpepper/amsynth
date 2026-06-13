@@ -129,12 +129,16 @@ MidiController::HandleMidiData(const unsigned char* bytes, unsigned numBytes)
 void
 MidiController::pitch_wheel_change(float val)
 {
+	if (_ignorePitchWheelEvents)
+		return;
 	if (_handler) _handler->HandleMidiPitchWheel(val);
 }
 
 void
 MidiController::dispatch_note(unsigned char, unsigned char note, unsigned char vel)
 {
+	if (_ignoreNoteEvents)
+		return;
 	static const float scale = 1.f/127.f;
     if (!_handler) return;
 	if (vel) _handler->HandleMidiNoteOn((int) note, (float)vel * scale);

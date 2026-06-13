@@ -255,7 +255,7 @@ lv2_ui_port_event(LV2UI_Handle handle,
 				}
 			}
 		}
-	} else if (port_index >= PORT_FIRST_PARAMETER) {
+	} else if (PORT_FIRST_PARAMETER <= port_index && port_index < PORT_FIRST_PARAMETER + kAmsynthParameterCount) {
 		ui->presetController.getCurrentPreset().getParameter(port_index - PORT_FIRST_PARAMETER).setValue(*(float *)buffer, ui->parameterListener.get());
 	}
 }

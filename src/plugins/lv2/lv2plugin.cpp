@@ -58,6 +58,11 @@ struct amsynth_wrapper {
 	float *out_l;
 	float *out_r;
 	float *param_ports[kAmsynthParameterCount];
+	float *hz_mode_enable_port {nullptr};
+	float *hz_frequency_hz_port {nullptr};
+	float *hz_gate_port {nullptr};
+	float *hz_velocity_port {nullptr};
+	bool hz_mode_enabled {false};
 
 	std::map<LV2_URID, std::string> patch_values;
 
@@ -132,6 +137,18 @@ lv2_connect_port(LV2_Handle instance, uint32_t port, void *data_location)
 			break;
 		case PORT_AUDIO_R:
 			a->out_r = (float *) data_location;
+			break;
+		case PORT_HZ_MODE_ENABLE:
+			a->hz_mode_enable_port = (float *) data_location;
+			break;
+		case PORT_HZ_FREQUENCY_HZ:
+			a->hz_frequency_hz_port = (float *) data_location;
+			break;
+		case PORT_HZ_GATE:
+			a->hz_gate_port = (float *) data_location;
+			break;
+		case PORT_HZ_VELOCITY:
+			a->hz_velocity_port = (float *) data_location;
 			break;
 		default:
 			if (PORT_FIRST_PARAMETER <= port && (port - PORT_FIRST_PARAMETER) < kAmsynthParameterCount) {
@@ -211,6 +228,18 @@ lv2_run(LV2_Handle instance, uint32_t sample_count)
 				a->synth.setParameterValue((Param)i, *host_value);
 			}
 		}
+	}
+
+	const bool hz_mode_enabled = a->hz_mode_enable_port && (*a->hz_mode_enable_port > 0.5f);
+	if (hz_mode_enabled != a->hz_mode_enabled) {
+		a->synth.setHzModeEnabled(hz_mode_enabled);
+		a->hz_mode_enabled = hz_mode_enabled;
+	}
+	if (hz_mode_enabled) {
+		const float frequency_hz = a->hz_frequency_hz_port ? *a->hz_frequency_hz_port : 0.0f;
+		const float gate = a->hz_gate_port ? *a->hz_gate_port : 0.0f;
+		const float velocity = a->hz_velocity_port ? *a->hz_velocity_port : 1.0f;
+		a->synth.setHzInput(frequency_hz, gate, velocity);
 	}
 
 	std::vector<amsynth_midi_cc_t> midi_out;

@@ -54,6 +54,9 @@ public:
 
 	void	setPresetController	(PresetController & pc) { presetController = &pc; }
 	void	SetMidiEventHandler(MidiEventHandler* h) { _handler = h; }
+
+	void	setIgnoreNoteEvents(bool ignore) { _ignoreNoteEvents = ignore; }
+	void	setIgnorePitchWheelEvents(bool ignore) { _ignorePitchWheelEvents = ignore; }
 	
 	void	HandleMidiData(const unsigned char *bytes, unsigned numBytes);
 
@@ -87,6 +90,9 @@ private:
 
 	int _cc_to_param_map[MAX_CC];
 	int _param_to_cc_map[kAmsynthParameterCount];
+
+	bool _ignoreNoteEvents {false};
+	bool _ignorePitchWheelEvents {false};
 };
 
 #endif

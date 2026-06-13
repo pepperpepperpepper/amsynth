@@ -58,6 +58,10 @@ public:
 	void	HandleMidiSustainPedal(uchar value) override;
 	void	HandleMidiPan(float left, float right) override { mPanGainLeft = left; mPanGainRight = right; }
 
+	void	HandleHzNoteOn(float frequencyHz, float velocity);
+	void	HandleHzNoteOff();
+	void	HandleHzPitch(float frequencyHz);
+
 	void	SetMaxVoices	(int voices) { mMaxVoices = voices; }
 	int		GetMaxVoices	() { return mMaxVoices; }
 

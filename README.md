@@ -25,6 +25,24 @@ There are currently several different ways to run amsynth:
 - VST2 plug-in
 - DSSI plug-in
 
+## Hz pitch control (experimental)
+
+amsynth can be driven with continuous **frequency (Hz)** input instead of quantized MIDI note numbers.
+
+- Standalone: run `amsynth --hz-osc <port>` and send OSC messages to `/amsynth/hz_input` (`frequency_hz gate velocity`).
+- LV2: enable the `hz_mode_enable` port and drive `frequency_hz`, `gate`, and `velocity`. When enabled, MIDI note on/off and pitch wheel are ignored (CCs still work).
+
+Example (using `oscsend` from liblo):
+
+```sh
+amsynth --hz-osc 9000 &
+oscsend 127.0.0.1 9000 /amsynth/hz_input fff 440 1 1
+```
+
+The standalone OSC server also accepts `/amsynth/hz`, `/amsynth/gate`, and `/amsynth/velocity` messages.
+
+For quick testing and scripted control, see `tools/amsynth-hzctl.c`.
+
 ## Presets
 
 amsynth stores presets in banks, each containing 128 presets.

@@ -68,7 +68,11 @@ OPTIONS
 
 :   automatically connect jack audio ports to hardware I/O ports. (Default: true)
 
-`--force-device-scale-factor` \<scale\>
+`--hz-osc` \<port\>
+
+:   accept Hz pitch control over OSC (enables Hz mode)
+
+`--ui-scale` \<scale\>
 
 :   set the scaling factor to use for the control panel
 

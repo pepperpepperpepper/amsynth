@@ -644,4 +644,49 @@
         lv2:scalePoint [ rdf:value 0.0 ; rdfs:label "always"] ;
         lv2:scalePoint [ rdf:value 1.0 ; rdfs:label "legato"] ;
         pg:group <http://code.google.com/p/amsynth/amsynth#group_keyboard> ;
+    ] , [
+        a lv2:InputPort ,
+            lv2:ControlPort ;
+        lv2:index 45 ;
+        lv2:symbol "hz_mode_enable" ;
+        lv2:name "Hz Mode Enable" ;
+        lv2:portProperty epp:hasStrictBounds , lv2:toggled ;
+        lv2:default 0.000000 ;
+        lv2:minimum 0.000000 ;
+        lv2:maximum 1.000000 ;
+        pg:group <http://code.google.com/p/amsynth/amsynth#group_keyboard> ;
+    ] , [
+        a lv2:InputPort ,
+            lv2:ControlPort ;
+        lv2:index 46 ;
+        lv2:symbol "frequency_hz" ;
+        lv2:name "Frequency (Hz)" ;
+        lv2:portProperty epp:hasStrictBounds ;
+        lv2:default 0.000000 ;
+        lv2:minimum 0.000000 ;
+        lv2:maximum 20000.000000 ;
+        units:unit units:hz ;
+        pg:group <http://code.google.com/p/amsynth/amsynth#group_keyboard> ;
+    ] , [
+        a lv2:InputPort ,
+            lv2:ControlPort ;
+        lv2:index 47 ;
+        lv2:symbol "gate" ;
+        lv2:name "Gate" ;
+        lv2:portProperty epp:hasStrictBounds , lv2:toggled ;
+        lv2:default 0.000000 ;
+        lv2:minimum 0.000000 ;
+        lv2:maximum 1.000000 ;
+        pg:group <http://code.google.com/p/amsynth/amsynth#group_keyboard> ;
+    ] , [
+        a lv2:InputPort ,
+            lv2:ControlPort ;
+        lv2:index 48 ;
+        lv2:symbol "velocity" ;
+        lv2:name "Velocity" ;
+        lv2:portProperty epp:hasStrictBounds ;
+        lv2:default 1.000000 ;
+        lv2:minimum 0.000000 ;
+        lv2:maximum 1.000000 ;
+        pg:group <http://code.google.com/p/amsynth/amsynth#group_keyboard> ;
     ] .

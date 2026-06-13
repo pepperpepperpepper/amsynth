@@ -22,6 +22,8 @@
 #ifndef AMSYNTH_LV2_H
 #define AMSYNTH_LV2_H
 
+#include "core/controls.h"
+
 #include "lv2/atom/atom.h"
 #include "lv2/atom/forge.h"
 #include "lv2/midi/midi.h"
@@ -50,6 +52,10 @@ enum {
     PORT_AUDIO_L            = 2,
     PORT_AUDIO_R            = 3,
     PORT_FIRST_PARAMETER    = 4,
+    PORT_HZ_MODE_ENABLE     = PORT_FIRST_PARAMETER + kAmsynthParameterCount,
+    PORT_HZ_FREQUENCY_HZ    = PORT_HZ_MODE_ENABLE + 1,
+    PORT_HZ_GATE            = PORT_HZ_MODE_ENABLE + 2,
+    PORT_HZ_VELOCITY        = PORT_HZ_MODE_ENABLE + 3,
 };
 
 #endif //AMSYNTH_LV2_H

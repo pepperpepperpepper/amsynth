@@ -28,6 +28,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 
@@ -270,6 +271,30 @@ void Synthesizer::setMidiChannel(unsigned char channel)
 	}
 }
 
+void Synthesizer::setHzModeEnabled(bool enabled)
+{
+	if (hzModeEnabled_ == enabled)
+		return;
+
+	hzModeEnabled_ = enabled;
+	hzGateInput_ = false;
+	hzGateActive_ = false;
+	hzAppliedFrequency_ = 0.0f;
+
+	needsResetAllVoices_ = true;
+	if (_midiController) {
+		_midiController->setIgnoreNoteEvents(enabled);
+		_midiController->setIgnorePitchWheelEvents(enabled);
+	}
+}
+
+void Synthesizer::setHzInput(float frequencyHz, float gate, float velocity)
+{
+	hzFrequency_ = frequencyHz;
+	hzGateInput_ = gate > 0.5f;
+	hzVelocity_ = std::max(0.0f, std::min(velocity, 1.0f));
+}
+
 int Synthesizer::loadTuningKeymap(const char *filename)
 {
 	if (filename && strlen(filename))
@@ -307,6 +332,23 @@ void Synthesizer::process(unsigned int nframes,
 	if (needsResetAllVoices_) {
 		needsResetAllVoices_ = false;
 		_voiceAllocationUnit->resetAllVoices();
+	}
+
+	if (hzModeEnabled_) {
+		const bool gate = hzGateInput_ && (hzFrequency_ > 0.0f);
+		const float frequencyHz = hzFrequency_;
+		if (gate && !hzGateActive_) {
+			_voiceAllocationUnit->HandleHzNoteOn(frequencyHz, hzVelocity_);
+			hzAppliedFrequency_ = frequencyHz;
+		} else if (!gate && hzGateActive_) {
+			_voiceAllocationUnit->HandleHzNoteOff();
+		} else if (gate) {
+			if (std::fabs(frequencyHz - hzAppliedFrequency_) > 1e-3f) {
+				_voiceAllocationUnit->HandleHzPitch(frequencyHz);
+				hzAppliedFrequency_ = frequencyHz;
+			}
+		}
+		hzGateActive_ = gate;
 	}
 
 	std::vector<amsynth_midi_event_t>::const_iterator event = midi_in.begin();

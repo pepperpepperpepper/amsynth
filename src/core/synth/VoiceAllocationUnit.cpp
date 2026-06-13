@@ -258,6 +258,52 @@ VoiceAllocationUnit::HandleMidiNoteOff(int note, float /*velocity*/)
 	}
 }
 
+void VoiceAllocationUnit::HandleHzNoteOn(float frequencyHz, float velocity)
+{
+	if (frequencyHz <= 0.0f)
+		return;
+
+	VoiceBoard *voice = _voices[0];
+
+	keyPressed[0] = true;
+
+	const float startFrequency = (mLastNoteFrequency > 0.0f) ? mLastNoteFrequency : frequencyHz;
+	const float portamentoTime = (mLastNoteFrequency > 0.0f) ? mPortamentoTime : 0.0f;
+	voice->setFrequency(startFrequency, frequencyHz, portamentoTime);
+
+	if (voice->isSilent())
+		voice->reset();
+
+	voice->setVelocity(velocity);
+	voice->triggerOn(true);
+
+	active[0] = true;
+	mLastNoteFrequency = frequencyHz;
+}
+
+void VoiceAllocationUnit::HandleHzPitch(float frequencyHz)
+{
+	if (frequencyHz <= 0.0f)
+		return;
+	if (!active[0])
+		return;
+
+	VoiceBoard *voice = _voices[0];
+	voice->setFrequency(voice->getFrequency(), frequencyHz, mPortamentoTime);
+	mLastNoteFrequency = frequencyHz;
+}
+
+void VoiceAllocationUnit::HandleHzNoteOff()
+{
+	keyPressed[0] = false;
+
+	if (sustain)
+		return;
+
+	if (active[0])
+		_voices[0]->triggerOff();
+}
+
 void
 VoiceAllocationUnit::HandleMidiPitchWheel(float value)
 {
