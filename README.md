@@ -1,12 +1,13 @@
-# amsynth
+# AMsynth enhanced
 
-amsynth is is a free and open-source analog modelling (a.k.a virtual analog)
-software synthesizer.
+AMsynth enhanced is a fork of [amsynth](https://github.com/amsynth/amsynth), a
+free and open-source analog modelling (a.k.a virtual analog) software synthesizer.
 
 It mimics the operation of early analog subtractive synthesizers with classic
 oscillator waveforms, envelopes, filter, modulation and effects.
 
-The aim is to make it easy to create and modify sounds.
+The aim is to make it easy to create and modify sounds. This fork adds per-preset
+Scala tuning and experimental continuous-frequency (Hz) pitch control.
 
 ## Features
 
@@ -18,7 +19,7 @@ The aim is to make it easy to create and modify sounds.
 - Distortion and reverb
 - Hundreds of presets
 
-There are currently several different ways to run amsynth:
+There are currently several different ways to run AMsynth enhanced:
 
 - Stand-alone application using JACK, ALSA or OSS
 - LV2 plug-in

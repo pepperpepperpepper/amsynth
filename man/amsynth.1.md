@@ -105,7 +105,7 @@ ENVIRONMENT
 BUGS & FEATURE REQUESTS
 =======================
 
-If you find a bug or if you would like to propose a new feature, please report it at https://github.com/amsynth/amsynth/issues .
+If you find a bug or if you would like to propose a new feature, please report it at https://github.com/pepperpepperpepper/amsynth/issues .
 
 AUTHORS
 =======

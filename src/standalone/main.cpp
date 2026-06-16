@@ -441,7 +441,7 @@ class MainWindow : public juce::DocumentWindow
 {
 public:
 	MainWindow()
-	: DocumentWindow(PACKAGE_NAME, juce::Colours::lightgrey, juce::DocumentWindow::closeButton | juce::DocumentWindow::minimiseButton)
+	: DocumentWindow(AMSYNTH_DISPLAY_NAME, juce::Colours::lightgrey, juce::DocumentWindow::closeButton | juce::DocumentWindow::minimiseButton)
 	{
 		auto mainComponent = new MainComponent(s_synthesizer->getPresetController(), s_synthesizer->getMidiController());
 		for (const auto &it : s_synthesizer->getProperties()) {
@@ -516,7 +516,7 @@ public:
 	}
 
 	void shutdown() override {}
-	const juce::String getApplicationName() override { return PACKAGE_NAME; }
+	const juce::String getApplicationName() override { return AMSYNTH_DISPLAY_NAME; }
 	const juce::String getApplicationVersion() override { return PACKAGE_VERSION; }
 };
 
@@ -571,7 +571,7 @@ int main( int argc, char *argv[] )
 	while ((opt = getopt_long(argc, argv, "vhsdzxm:c:a:r:p:b:U:P:n:t:", longopts, &longindex)) != -1) {
 		switch (opt) {
 			case 'v':
-				std::cout << PACKAGE_STRING << std::endl;
+				std::cout << AMSYNTH_DISPLAY_NAME " " PACKAGE_VERSION << std::endl;
 				return 0;
 			case 'h':
 				std::cout << _("usage: ") << PACKAGE << _(" [options]") << "\n"

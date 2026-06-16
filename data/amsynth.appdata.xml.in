@@ -2,12 +2,12 @@
 <component type="desktop-application">
   <id>amsynth.desktop</id>
   <metadata_license>CC0-1.0</metadata_license>
-  <_name>Analog Modelling SYNTHesizer</_name>
+  <_name>AMsynth enhanced</_name>
   <project_license>GPL-2.0+</project_license>
   <_summary>Analog modelling (a.k.a virtual analog) software synthesizer</_summary>
-  <url type="homepage">https://github.com/amsynth/amsynth</url>
+  <url type="homepage">https://github.com/pepperpepperpepper/amsynth</url>
   <description>
-    <_p>amsynth is an analog modelling (a.k.a virtual analog) software synthesizer.
+    <_p>AMsynth enhanced is a fork of amsynth, an analog modelling (a.k.a virtual analog) software synthesizer.
 It mimics the operation of early analog subtractive synthesizers with
 classic oscillator waveforms, envelopes, filter, modulation and effects.
 The aim is to make it easy to create and modify sounds.</_p>
@@ -22,7 +22,7 @@ The aim is to make it easy to create and modify sounds.</_p>
       <_li>Hundreds of presets</_li>
     </ul>
 
-    <_p>There are currently several different ways to run amsynth:</_p>
+    <_p>There are currently several different ways to run AMsynth enhanced:</_p>
     <ul>
       <_li>Stand-alone application using JACK, ALSA or OSS</_li>
       <_li>DSSI plug-in</_li>
@@ -33,7 +33,7 @@ The aim is to make it easy to create and modify sounds.</_p>
   <screenshots>
     <screenshot type="default">
       <image height="462" width="616">http://amsynth.github.io/images/ScreenShot.png</image>
-      <caption>AMSYNTH Main Window</caption>
+      <caption>AMsynth enhanced Main Window</caption>
     </screenshot>
   </screenshots>
   <provides>

@@ -20,10 +20,10 @@ dnl
 
 AC_COPYRIGHT([Copyright (C) 2001 Nick Dowell])
 
-AC_INIT([amsynth], [1.13.4],
-        [https://github.com/amsynth/amsynth/issues],
+AC_INIT([amsynth], [1.14.0],
+        [https://github.com/pepperpepperpepper/amsynth/issues],
         [amsynth],
-        [https://github.com/amsynth/amsynth])
+        [https://github.com/pepperpepperpepper/amsynth])
 
 AC_CONFIG_SRCDIR([src/standalone/main.cpp])
 AC_CONFIG_HEADERS([config.h])
@@ -61,6 +61,9 @@ AC_SUBST(GETTEXT_PACKAGE)
 AC_DEFINE_UNQUOTED(GETTEXT_PACKAGE, "$GETTEXT_PACKAGE", [Gettext package])
 AC_DEFINE_UNQUOTED([DEFAULT_TEXT_DOMAIN], ["$GETTEXT_PACKAGE"],
     [The domain used by the gettext() and ngettext() macros])
+
+# Human-facing application name (display only; the package id stays "amsynth")
+AC_DEFINE([AMSYNTH_DISPLAY_NAME], ["AMsynth enhanced"], [Human-facing application name])
 
 dnl ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 dnl

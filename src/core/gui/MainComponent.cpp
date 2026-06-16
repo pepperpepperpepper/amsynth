@@ -278,7 +278,7 @@ struct MainComponent::Impl : private juce::Timer {
 			showAbout();
 		});
 		menu.addItem(GETTEXT("Report a Bug"), [] {
-			juce::URL("https://github.com/amsynth/amsynth/issues").launchInDefaultBrowser();
+			juce::URL("https://github.com/pepperpepperpepper/amsynth/issues").launchInDefaultBrowser();
 		});
 		menu.addItem(GETTEXT("Online Documentation"), [] {
 			juce::URL("https://github.com/amsynth/amsynth/wiki").launchInDefaultBrowser();
@@ -366,7 +366,7 @@ struct MainComponent::Impl : private juce::Timer {
 		editor->setMultiLine(true);
 		editor->setReadOnly(true);
 		editor->setText(juce::String(juce::CharPointer_UTF8(
-			"amsynth " PACKAGE_VERSION "\n\n"
+			AMSYNTH_DISPLAY_NAME " " PACKAGE_VERSION "\n\n"
 			"Analog Modelling SYNTHesizer\n\n"
 			"Copyright © 2002 - 2025 Nick Dowell and contributors")));
 		class MouseListener : public juce::MouseListener {

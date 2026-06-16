@@ -99,7 +99,7 @@ ENVIRONNEMENT
 BOGUES & DEMANDE DE FONCTIONNALITÉS
 ===================================
 
-Si vous trouvez un bogue, ou si vous voulez proposer une nouvelle fonctionnalité, veuillez le reporter à https://github.com/amsynth/amsynth/issues .
+Si vous trouvez un bogue, ou si vous voulez proposer une nouvelle fonctionnalité, veuillez le reporter à https://github.com/pepperpepperpepper/amsynth/issues .
 
 AUTEURS
 =======

@@ -99,7 +99,7 @@ UMGEBUNG
 BUGS & FEATURE REQUESTS
 =======================
 
-Wenn Sie einen Bug gefunden haben oder ein neues Feature vorschlagen möchten, melden Sie dies bitte auf https://github.com/amsynth/amsynth/issues .
+Wenn Sie einen Bug gefunden haben oder ein neues Feature vorschlagen möchten, melden Sie dies bitte auf https://github.com/pepperpepperpepper/amsynth/issues .
 
 AUTOREN
 =======
