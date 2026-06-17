@@ -5,3 +5,7 @@
 [submodule "external/MTS-ESP"]
 	path = external/MTS-ESP
 	url = https://github.com/ODDSound/MTS-ESP.git
+[submodule "external/scala-tunings"]
+	path = external/scala-tunings
+	url = git@git.uh-oh.wtf:scala-tunings.git
+	branch = main
