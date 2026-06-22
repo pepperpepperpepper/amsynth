@@ -98,6 +98,12 @@ VoiceAllocationUnit::HandleMidiNoteOn(int note, float velocity)
 	assert (note >= 0);
 	assert (note < 128);
 
+	// Tonic-split overlay: control-zone keys re-root the scale and produce no sound.
+	if (mTonicSplitEnabled && note < mTonicSplitPoint) {
+		tuningMap.setRoot(note);
+		return;
+	}
+
 	// Checks if the note is within the note ranges activated in the current keyboard map.
 	// The above assertions guarantee the safety of this check.
 	if (!shouldPlayNote(note))
@@ -205,6 +211,10 @@ VoiceAllocationUnit::HandleMidiNoteOn(int note, float velocity)
 void
 VoiceAllocationUnit::HandleMidiNoteOff(int note, float /*velocity*/)
 {
+	// Tonic-split control-zone keys never started a voice; ignore their note-offs.
+	if (mTonicSplitEnabled && note < mTonicSplitPoint)
+		return;
+
 	// No action is required if the note is outside the active range of notes.
 	if (!shouldPlayNote(note))
 		return;

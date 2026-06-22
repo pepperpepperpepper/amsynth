@@ -392,6 +392,65 @@ TEST(testHzInputGateAndPitch) {
     assert(!synth._voiceAllocationUnit->keyPressed[0]);
 }
 
+TEST(testTuningMapSetRoot) {
+    auto sclPath = writeTempFile(".scl",
+                                 "! ji.scl\n"
+                                 "JI test\n"
+                                 "3\n"
+                                 "9/8\n"
+                                 "5/4\n"
+                                 "2/1\n");
+    TuningMap tm;
+    assert(tm.loadScale(sclPath) == 0);
+
+    tm.setRoot(60); // C4 becomes the 1/1, at its 12-TET pitch
+    const double c4 = 440.0 * std::pow(2.0, (60 - 69) / 12.0);
+    assert(std::fabs(tm.noteToPitch(60) - c4) < 1e-6);
+    assert(std::fabs(tm.noteToPitch(61) / tm.noteToPitch(60) - 9.0 / 8.0) < 1e-9); // degree 1
+    assert(std::fabs(tm.noteToPitch(63) / tm.noteToPitch(60) - 2.0) < 1e-9);       // octave
+
+    tm.setRoot(67); // G4 — movable key center keeps G at its 12-TET pitch
+    const double g4 = 440.0 * std::pow(2.0, (67 - 69) / 12.0);
+    assert(std::fabs(tm.noteToPitch(67) - g4) < 1e-6);
+    assert(tm.getRoot() == 67);
+
+    std::remove(sclPath.c_str());
+}
+
+TEST(testTonicSplitOverlay) {
+    auto sclPath = writeTempFile(".scl",
+                                 "! ji.scl\n"
+                                 "JI test\n"
+                                 "3\n"
+                                 "9/8\n"
+                                 "5/4\n"
+                                 "2/1\n");
+    Synthesizer synth;
+    synth.setSampleRate(44100);
+    assert(synth.loadTuningScale(sclPath.c_str()) == 0);
+
+    auto *vau = synth._voiceAllocationUnit;
+    vau->setTonicSplitEnabled(true);
+    vau->setTonicSplitPoint(33); // bottom octave (notes < 33) is the control zone
+
+    // Control-zone key: re-roots the scale and makes no sound.
+    vau->HandleMidiNoteOn(24, 1.0f); // C1
+    assert(countActiveVoices(&synth) == 0);
+    assert(vau->tuningMap.getRoot() == 24);
+    const double cRoot = 440.0 * std::pow(2.0, (24 - 69) / 12.0);
+    assert(std::fabs(vau->tuningMap.noteToPitch(24) - cRoot) < 1e-6);
+
+    // Play-zone key: sounds, using the re-rooted tuning.
+    vau->HandleMidiNoteOn(60, 1.0f); // C4
+    assert(countActiveVoices(&synth) == 1);
+
+    // Control-zone note-off is a no-op (no stuck voice/state).
+    vau->HandleMidiNoteOff(24, 0.0f);
+    assert(countActiveVoices(&synth) == 1);
+
+    std::remove(sclPath.c_str());
+}
+
 #define RUN_TEST(testFunction) do { printf("%s()... ", #testFunction); testFunction(); printf("OK\n"); } while (0)
 
 int main(int argc, const char * argv[])  {
@@ -407,5 +466,7 @@ int main(int argc, const char * argv[])  {
     RUN_TEST(testTuningEditsCapturedInPreset);
     RUN_TEST(testHzModeIgnoresMidiNotes);
     RUN_TEST(testHzInputGateAndPitch);
+    RUN_TEST(testTuningMapSetRoot);
+    RUN_TEST(testTonicSplitOverlay);
     return 0;
 }

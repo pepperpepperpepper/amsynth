@@ -62,6 +62,12 @@ public:
 	void	HandleHzNoteOff();
 	void	HandleHzPitch(float frequencyHz);
 
+	void	setTonicSplitEnabled(bool enabled) { mTonicSplitEnabled = enabled; }
+	bool	getTonicSplitEnabled() const { return mTonicSplitEnabled; }
+	void	setTonicSplitPoint(int note) { mTonicSplitPoint = note; }
+	int		getTonicSplitPoint() const { return mTonicSplitPoint; }
+	void	setTonicRoot(int note) { tuningMap.setRoot(note); }
+
 	void	SetMaxVoices	(int voices) { mMaxVoices = voices; }
 	int		GetMaxVoices	() { return mMaxVoices; }
 
@@ -105,6 +111,9 @@ public:
 	float	mPitchBendRangeSemitones;
 	float	mPitchBendValue;
 	float	mLastNoteFrequency;
+
+	bool	mTonicSplitEnabled {false};
+	int		mTonicSplitPoint {33}; // notes below this re-root the scale (88-key bottom octave: 21..32)
 
 	TuningMap	tuningMap;
 #ifdef WITH_MTS_ESP

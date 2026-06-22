@@ -47,6 +47,7 @@ void
 TuningMap::defaultKeyMap	()
 {
 	keyMapFile.clear();
+	rootNote = -1;
 	zeroNote = 0;
 	refNote = 69;
 	refPitch = 440.;
@@ -65,6 +66,20 @@ TuningMap::updateBasePitch	()
 	basePitch = 1.;
 	basePitch = refPitch / noteToPitch(refNote);
 	// Clever, huh?
+}
+
+void
+TuningMap::setRoot		(int midiNote)
+{
+	if (midiNote < 0 || midiNote > 127)
+		return;
+	// Movable key center: midiNote becomes the scale's 1/1, taking its
+	// 12-TET (A4 = 440 Hz) frequency; the loaded scale is rebuilt from there.
+	rootNote = midiNote;
+	zeroNote = midiNote;
+	refNote = midiNote;
+	refPitch = 440. * pow(2., (midiNote - 69) / 12.);
+	updateBasePitch();
 }
 
 double

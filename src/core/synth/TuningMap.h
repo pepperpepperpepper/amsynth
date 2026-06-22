@@ -56,6 +56,12 @@ public:
 
 	double	noteToPitch		(int note) const;
 
+	void	setRoot		(int midiNote);
+	// Movable key center: re-anchor the current scale so its 1/1 lands on
+	// midiNote's pitch class, with that note at its 12-TET (A4=440) frequency.
+	// Does not reload the scale. -1 from getRoot() means "not re-rooted".
+	int		getRoot		() const { return rootNote; }
+
 	bool	inActiveRange   (int note) const { return activeRange[note]; }
 
 private:
@@ -69,6 +75,7 @@ private:
 	int			refNote;
 	double			refPitch;
 	int			mapRepeatInc;
+	int			rootNote;
 
 	bool		activeRange[128];
 	std::vector<int>	mapping; // -1 for unmapped
