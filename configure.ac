@@ -46,6 +46,46 @@ LT_INIT
 
 AX_CXX_COMPILE_STDCXX_14([noext], [mandatory])
 
+dnl ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+dnl
+dnl Optional build accelerators (ccache, lld) to speed up clean/rebuilds.
+dnl Both auto-enable when available; use --disable-ccache / --disable-lld.
+dnl
+dnl ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+amsynth_ccache=no
+AC_ARG_ENABLE([ccache],
+    [AS_HELP_STRING([--disable-ccache], [do not use ccache even when available])],
+    [enable_ccache=$enableval], [enable_ccache=auto])
+AS_IF([test "x$enable_ccache" != "xno"], [
+    AC_CHECK_PROG([CCACHE], [ccache], [ccache])
+    AS_IF([test "x$CCACHE" != "x"], [
+        case " $CC "  in *" ccache "*) ;; *) CC="ccache $CC"   ;; esac
+        case " $CXX " in *" ccache "*) ;; *) CXX="ccache $CXX" ;; esac
+        amsynth_ccache=yes
+    ], [
+        AS_IF([test "x$enable_ccache" = "xyes"],
+            [AC_MSG_ERROR([--enable-ccache given but ccache was not found])])
+    ])
+])
+
+amsynth_lld=no
+AC_ARG_ENABLE([lld],
+    [AS_HELP_STRING([--disable-lld], [do not use the lld linker even when available])],
+    [enable_lld=$enableval], [enable_lld=auto])
+AS_IF([test "x$enable_lld" != "xno"], [
+    AC_MSG_CHECKING([whether $CXX accepts -fuse-ld=lld])
+    amsynth_save_ldflags="$LDFLAGS"
+    LDFLAGS="$LDFLAGS -fuse-ld=lld"
+    AC_LANG_PUSH([C++])
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [])],
+        [AC_MSG_RESULT([yes]); amsynth_lld=yes],
+        [AC_MSG_RESULT([no]); LDFLAGS="$amsynth_save_ldflags"
+         AS_IF([test "x$enable_lld" = "xyes"],
+            [AC_MSG_ERROR([--enable-lld given but -fuse-ld=lld does not work])])])
+    AC_LANG_POP([C++])
+])
+
 IT_PROG_INTLTOOL
 
 # Because IT_PROG_INTLTOOL does not set ENABLE_NLS
@@ -225,6 +265,9 @@ echo \| Build LV2 plugin...................................... : $with_lv2
 echo \| Build VST plugin...................................... : $with_vst
 echo \|
 echo \| Generate man pages using pandoc....................... : $with_pandoc
+echo \|
+echo \| Build accelerator: ccache............................. : $amsynth_ccache
+echo \| Build accelerator: lld linker......................... : $amsynth_lld
 echo
 echo configure complete. now type \'make\' to build $PACKAGE
 echo and then, as root, \'make install\' to install
