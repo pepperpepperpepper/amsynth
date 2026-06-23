@@ -41,6 +41,9 @@ enum class PropertyID
 	tuning_kbm_file,
 	tuning_scl_file,
 	tuning_mts_esp_disabled,
+	tuning_split,
+	tuning_split_point,
+	tuning_root,
 };
 
 #ifdef NDEBUG

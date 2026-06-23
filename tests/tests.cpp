@@ -451,6 +451,58 @@ TEST(testTonicSplitOverlay) {
     std::remove(sclPath.c_str());
 }
 
+TEST(testTuningSplitPersistedPerPreset) {
+    Preset preset("Split Test");
+    preset.setProperty(PROP_NAME(tuning_split), "1");
+    preset.setProperty(PROP_NAME(tuning_split_point), "36");
+    preset.setProperty(PROP_NAME(tuning_root), "62");
+
+    // Round-trip through the preset string serialization.
+    Preset restored;
+    assert(restored.fromString(preset.toString()));
+    std::string v;
+    assert(restored.getProperty(PROP_NAME(tuning_split), &v) && v == "1");
+    assert(restored.getProperty(PROP_NAME(tuning_split_point), &v) && v == "36");
+    assert(restored.getProperty(PROP_NAME(tuning_root), &v) && v == "62");
+
+    // Round-trip through a bank file.
+    PresetController pc;
+    for (int i = 0; i < PresetController::kNumPresets; i++)
+        pc.getPreset(i).setName("unused");
+    pc.getPreset(0) = preset;
+    auto bankPath = writeTempFile(".bank", "");
+    assert(pc.savePresets(bankPath.c_str()) == 0);
+
+    PresetController pc2;
+    assert(pc2.loadPresets(bankPath.c_str()) == 0);
+    assert(pc2.getPreset(0).getProperty(PROP_NAME(tuning_split), &v) && v == "1");
+    assert(pc2.getPreset(0).getProperty(PROP_NAME(tuning_split_point), &v) && v == "36");
+    assert(pc2.getPreset(0).getProperty(PROP_NAME(tuning_root), &v) && v == "62");
+
+    std::remove(bankPath.c_str());
+}
+
+TEST(testTuningSplitAppliedOnPresetRecall) {
+    Synthesizer synth;
+    auto *pc = synth.getPresetController();
+    auto *vau = synth._voiceAllocationUnit;
+
+    pc->getPreset(1).setProperty(PROP_NAME(tuning_split), "1");
+    pc->getPreset(1).setProperty(PROP_NAME(tuning_split_point), "36");
+    pc->getPreset(1).setProperty(PROP_NAME(tuning_root), "62");
+
+    pc->selectPreset(1);
+    assert(vau->getTonicSplitEnabled());
+    assert(vau->getTonicSplitPoint() == 36);
+    assert(vau->tuningMap.getRoot() == 62);
+
+    // Editing via the property API re-roots and captures back onto the preset.
+    synth.setProperty(PROP_NAME(tuning_root), "64");
+    assert(vau->tuningMap.getRoot() == 64);
+    std::string v;
+    assert(pc->getCurrentPreset().getProperty(PROP_NAME(tuning_root), &v) && v == "64");
+}
+
 #define RUN_TEST(testFunction) do { printf("%s()... ", #testFunction); testFunction(); printf("OK\n"); } while (0)
 
 int main(int argc, const char * argv[])  {
@@ -468,5 +520,7 @@ int main(int argc, const char * argv[])  {
     RUN_TEST(testHzInputGateAndPitch);
     RUN_TEST(testTuningMapSetRoot);
     RUN_TEST(testTonicSplitOverlay);
+    RUN_TEST(testTuningSplitPersistedPerPreset);
+    RUN_TEST(testTuningSplitAppliedOnPresetRecall);
     return 0;
 }

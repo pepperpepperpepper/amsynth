@@ -48,6 +48,11 @@ public:
 	bool			getProperty		(const std::string &key, std::string *value) const;
 	void			setProperty		(const std::string &key, const std::string &value);
 	void			clearProperty	(const std::string &key) { mProperties.erase(key); }
+
+	// Per-preset properties that round-trip in preset/bank files. Single source
+	// of truth, used by the (de)serialization here and in PresetController.
+	static const std::vector<std::string> &serializedPropertyKeys();
+	static bool		isSerializedProperty(const std::string &key);
 	
 	Parameter&		getParameter	(const std::string name);
 	Parameter&		getParameter	(const int no) { return mParameters.at(no); };

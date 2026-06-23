@@ -125,12 +125,7 @@ Preset::toString(std::stringstream &stream)
 		stream << "<parameter> " << getParameter(n).getName() << " " << getParameter(n).getValue() << std::endl;
 	}
 
-	static constexpr std::array<const char *, 2> keys = {
-		"tuning_scl_file",
-		"tuning_kbm_file",
-	};
-
-	for (auto key : keys) {
+	for (const auto &key : serializedPropertyKeys()) {
 		auto it = mProperties.find(key);
 		if (it == mProperties.end())
 			continue;
@@ -139,6 +134,28 @@ Preset::toString(std::stringstream &stream)
 			stream << " " << it->second;
 		stream << std::endl;
 	}
+}
+
+const std::vector<std::string> &
+Preset::serializedPropertyKeys()
+{
+	static const std::vector<std::string> keys = {
+		"tuning_scl_file",
+		"tuning_kbm_file",
+		"tuning_split",
+		"tuning_split_point",
+		"tuning_root",
+	};
+	return keys;
+}
+
+bool
+Preset::isSerializedProperty(const std::string &key)
+{
+	for (const auto &k : serializedPropertyKeys())
+		if (k == key)
+			return true;
+	return false;
 }
 
 bool
@@ -189,7 +206,7 @@ Preset::fromString(const std::string &str)
 			if (!value.empty() && value[0] == ' ')
 				value.erase(0, 1);
 
-			if (key == "tuning_scl_file" || key == "tuning_kbm_file")
+			if (isSerializedProperty(key))
 				setProperty(key, value);
 
 			if (!(stream >> buffer))

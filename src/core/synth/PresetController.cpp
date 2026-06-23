@@ -230,17 +230,13 @@ PresetController::savePresets		(const char *filename)
 			}
 
 			std::string value;
-			if (presets[i].getProperty("tuning_scl_file", &value)) {
-				file << "<property> tuning_scl_file";
-				if (!value.empty())
-					file << " " << value;
-				file << "\n";
-			}
-			if (presets[i].getProperty("tuning_kbm_file", &value)) {
-				file << "<property> tuning_kbm_file";
-				if (!value.empty())
-					file << " " << value;
-				file << "\n";
+			for (const auto &key : Preset::serializedPropertyKeys()) {
+				if (presets[i].getProperty(key, &value)) {
+					file << "<property> " << key;
+					if (!value.empty())
+						file << " " << value;
+					file << "\n";
+				}
 			}
 		}
 	}
@@ -382,7 +378,7 @@ static bool readBankFile(const char *filename, Preset *presets)
 					key = std::string(ptr);
 				}
 
-				if (key == "tuning_scl_file" || key == "tuning_kbm_file")
+				if (Preset::isSerializedProperty(key))
 					presets[preset_index].setProperty(key, value);
 			}
 

@@ -49,6 +49,13 @@ public:
 			synthesizer_->setProperty(PROP_NAME(tuning_scl_file), value.c_str());
 		if (preset.getProperty(PROP_NAME(tuning_kbm_file), &value))
 			synthesizer_->setProperty(PROP_NAME(tuning_kbm_file), value.c_str());
+		// Split/root after the scale & keymap so setRoot re-anchors the loaded scale.
+		if (preset.getProperty(PROP_NAME(tuning_split), &value))
+			synthesizer_->setProperty(PROP_NAME(tuning_split), value.c_str());
+		if (preset.getProperty(PROP_NAME(tuning_split_point), &value))
+			synthesizer_->setProperty(PROP_NAME(tuning_split_point), value.c_str());
+		if (preset.getProperty(PROP_NAME(tuning_root), &value))
+			synthesizer_->setProperty(PROP_NAME(tuning_root), value.c_str());
 	}
 
 private:
@@ -120,6 +127,22 @@ void Synthesizer::setProperty(const char *name, const char *value)
 		if (result == 0)
 			_presetController->getCurrentPreset().setProperty(PROP_NAME(tuning_scl_file), value ? value : "");
 	}
+
+	if (name == std::string(PROP_NAME(tuning_split))) {
+		bool enabled = value && strlen(value) && std::stoi(value) != 0;
+		_voiceAllocationUnit->setTonicSplitEnabled(enabled);
+		_presetController->getCurrentPreset().setProperty(PROP_NAME(tuning_split), enabled ? "1" : "0");
+	}
+
+	if (name == std::string(PROP_NAME(tuning_split_point)) && value && strlen(value)) {
+		_voiceAllocationUnit->setTonicSplitPoint(std::stoi(value));
+		_presetController->getCurrentPreset().setProperty(PROP_NAME(tuning_split_point), value);
+	}
+
+	if (name == std::string(PROP_NAME(tuning_root)) && value && strlen(value)) {
+		_voiceAllocationUnit->setTonicRoot(std::stoi(value));
+		_presetController->getCurrentPreset().setProperty(PROP_NAME(tuning_root), value);
+	}
 	
 #ifdef WITH_MTS_ESP
 	if (name == std::string(PROP_NAME(tuning_mts_esp_disabled)))
@@ -132,6 +155,9 @@ std::map<std::string, std::string> Synthesizer::getProperties()
 	auto props = propertyStore_;
 	props.erase(PROP_NAME(tuning_kbm_file));
 	props.erase(PROP_NAME(tuning_scl_file));
+	props.erase(PROP_NAME(tuning_split));
+	props.erase(PROP_NAME(tuning_split_point));
+	props.erase(PROP_NAME(tuning_root));
 	props[PROP_NAME(max_polyphony)] = std::to_string(getMaxNumVoices());
 	props[PROP_NAME(midi_channel)] = std::to_string(getMidiChannel());
 	props[PROP_NAME(pitch_bend_range)] = std::to_string(getPitchBendRangeSemitones());
