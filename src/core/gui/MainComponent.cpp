@@ -183,6 +183,21 @@ struct MainComponent::Impl : private juce::Timer {
 	void showMainMenu(juce::Component *targetComponent) {
 		auto menu = juce::PopupMenu();
 
+		auto getIntProperty = [&] (const char *key, int fallback) {
+			auto it = component_->properties.find(key);
+			if (it != component_->properties.end())
+				return std::stoi(it->second);
+			return fallback;
+		};
+		auto setIntProperty = [&] (const char *key, int value) {
+			setProperty(key, std::to_string(value).c_str());
+		};
+		auto noteName = [] (int note) {
+			static const char *const names[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+			return juce::String(names[note % 12]) + juce::String(note / 12 - 1)
+				+ " (" + juce::String(note) + ")";
+		};
+
 		menu.addSectionHeader(GETTEXT("Edit"));
 		menu.addCommandItem(commandManager_, juce::StandardApplicationCommandIDs::copy);
 		menu.addCommandItem(commandManager_, juce::StandardApplicationCommandIDs::paste);
@@ -216,6 +231,36 @@ struct MainComponent::Impl : private juce::Timer {
 			setProperty(PROP_NAME(tuning_scl_file), "");
 			setProperty(PROP_NAME(tuning_kbm_file), "");
 		});
+		menu.addSubMenu(GETTEXT("Tonic Split"), [&] {
+			juce::PopupMenu submenu;
+			bool splitEnabled = getIntProperty(PROP_NAME(tuning_split), 0) != 0;
+			submenu.addItem(GETTEXT("Enabled"), true, splitEnabled, [=] {
+				setIntProperty(PROP_NAME(tuning_split), splitEnabled ? 0 : 1);
+			});
+			submenu.addSubMenu(GETTEXT("Split Point (lowest playing key)"), [&] {
+				juce::PopupMenu points;
+				auto key = PROP_NAME(tuning_split_point);
+				int currentValue = getIntProperty(key, 33);
+				for (int note = 21; note <= 48; note++) {
+					points.addItem(noteName(note), true, note == currentValue, [=] {
+						setIntProperty(key, note);
+					});
+				}
+				return points;
+			}(), splitEnabled);
+			submenu.addSubMenu(GETTEXT("Set Tonic"), [&] {
+				juce::PopupMenu roots;
+				auto key = PROP_NAME(tuning_root);
+				int currentValue = getIntProperty(key, -1);
+				for (int note = 48; note <= 72; note++) {
+					roots.addItem(noteName(note), true, note == currentValue, [=] {
+						setIntProperty(key, note);
+					});
+				}
+				return roots;
+			}(), splitEnabled);
+			return submenu;
+		}());
 #ifdef WITH_MTS_ESP
 		do {
 			auto it = component_->properties.find(PROP_NAME(tuning_mts_esp_disabled));
@@ -227,15 +272,6 @@ struct MainComponent::Impl : private juce::Timer {
 #endif
 
 		menu.addSectionHeader(GETTEXT("Config"));
-        auto getIntProperty = [&] (const char *key, int fallback) {
-            auto it = component_->properties.find(key);
-            if (it != component_->properties.end())
-                return std::stoi(it->second);
-            return fallback;
-        };
-        auto setIntProperty = [&] (const char *key, int value) {
-            setProperty(key, std::to_string(value).c_str());
-        };
 		menu.addSubMenu(GETTEXT("Pitch Bend Range"), [&] {
 			juce::PopupMenu submenu;
             auto key = PROP_NAME(pitch_bend_range);

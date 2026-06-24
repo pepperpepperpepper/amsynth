@@ -44,6 +44,9 @@
 	X(preset_number) \
 	X(tuning_kbm_file) \
 	X(tuning_scl_file) \
+	X(tuning_split) \
+	X(tuning_split_point) \
+	X(tuning_root) \
 	X(tuning_mts_esp_disabled)
 
 enum {
