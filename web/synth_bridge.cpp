@@ -210,6 +210,42 @@ int synth_load_keymap(int len)
 	return gSynth->loadTuningKeymapFromString(gTextBuf);
 }
 
+// --- MIDI controller (CC -> parameter) map ----------------------------------
+
+// Loads a controllers config (one parameter name per line, line N = CC N) from
+// the shared text buffer. len <= 0 resets to the built-in default mappings.
+EMSCRIPTEN_KEEPALIVE
+int synth_load_controllers(int len)
+{
+	if (!gSynth)
+		return -1;
+	if (len <= 0) {
+		gSynth->loadControllerMapFromString("");
+		return 0;
+	}
+	if (len >= kTextBufSize)
+		return -1;
+	gTextBuf[len] = '\0';
+	gSynth->loadControllerMapFromString(gTextBuf);
+	return 0;
+}
+
+// Writes the current CC->parameter map into the shared text buffer (same format
+// as the desktop controllers file) and returns its length, for export.
+EMSCRIPTEN_KEEPALIVE
+int synth_get_controllers()
+{
+	if (!gSynth)
+		return 0;
+	std::string s = gSynth->getControllerMapString();
+	int n = (int)s.size();
+	if (n > kTextBufSize - 1)
+		n = kTextBufSize - 1;
+	s.copy(gTextBuf, n);
+	gTextBuf[n] = '\0';
+	return n;
+}
+
 // --- Tonic-split demo controls (the feature wired up earlier) ---------------
 
 EMSCRIPTEN_KEEPALIVE

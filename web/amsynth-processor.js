@@ -71,7 +71,20 @@ class AmsynthProcessor extends AudioWorkletProcessor {
 
     for (const m of this.pending) this.apply(m);
     this.pending.length = 0;
-    this.port.postMessage({ type: "ready", params });
+    this.port.postMessage({ type: "ready", params, ccForName: this.readControllerMap() });
+  }
+
+  // Read the current CC->parameter map back as { paramName: ccNumber }.
+  readControllerMap() {
+    const len = this.ex.synth_get_controllers();
+    const text = new TextDecoder().decode(new Uint8Array(this.mem.buffer, this.ex.synth_text_buffer(), len));
+    const lines = text.split("\n");
+    const ccForName = {};
+    for (let cc = 0; cc < lines.length; cc++) {
+      const name = lines[cc].trim();
+      if (name && name !== "null") ccForName[name] = cc;
+    }
+    return ccForName;
   }
 
   onMessage(m) {
@@ -92,6 +105,16 @@ class AmsynthProcessor extends AudioWorkletProcessor {
       case "tonicRoot":  ex.synth_set_tonic_root(m.note); break;
       case "loadScale":  this.loadText(m.text, ex.synth_load_scale, "scaleLoaded", m.name); break;
       case "loadKeymap": this.loadText(m.text, ex.synth_load_keymap, "keymapLoaded", m.name); break;
+      case "loadControllers":
+        this.loadText(m.text, ex.synth_load_controllers, "controllersLoaded", m.name);
+        this.port.postMessage({ type: "ccMap", ccForName: this.readControllerMap() });
+        break;
+      case "getControllers": {
+        const len = ex.synth_get_controllers();
+        const text = new TextDecoder().decode(new Uint8Array(this.mem.buffer, ex.synth_text_buffer(), len));
+        this.port.postMessage({ type: "controllers", text });
+        break;
+      }
     }
   }
 

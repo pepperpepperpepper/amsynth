@@ -19,6 +19,8 @@
 "_synth_text_buffer_size",
 "_synth_load_scale",
 "_synth_load_keymap",
+"_synth_load_controllers",
+"_synth_get_controllers",
 "_synth_set_tonic_split",
 "_synth_set_tonic_split_point",
 "_synth_set_tonic_root",

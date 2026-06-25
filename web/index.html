@@ -22,6 +22,7 @@
   .param label { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); }
   .param label b { color:var(--ink); font-weight:600; }
   .param input[type=range] { width:100%; accent-color:var(--accent); }
+  .ccbadge { color:var(--accent); font-size:10px; font-weight:600; }
   /* piano */
   #piano { position:relative; height:130px; user-select:none; touch-action:none; }
   .key { position:absolute; bottom:0; border:1px solid #0006; border-radius:0 0 4px 4px; }
@@ -75,6 +76,17 @@
   </section>
 
   <section>
+    <h2>MIDI CC mappings</h2>
+    <div class="tonic">
+      <label>Controllers file <input type="file" id="ctrlFile"></label>
+      <button class="secondary" type="button" id="ctrlExport">Export current</button>
+      <button class="secondary" type="button" id="ctrlReset">Reset to defaults</button>
+      <span id="ctrlStatus" class="hint" style="margin:0">built-in defaults</span>
+    </div>
+    <div class="hint">Load an amsynth <code>controllers</code> file (one parameter name per line; line N = CC N) to drive parameters from your controller's knobs. The sliders below are tagged with their CC. Export the current map to get an editable template.</div>
+  </section>
+
+  <section>
     <h2>Parameters</h2>
     <div class="params" id="params"></div>
   </section>
@@ -98,9 +110,12 @@ async function start() {
   node.connect(ctx.destination);
   node.port.onmessage = (e) => {
     const d = e.data;
-    if (d.type === "ready") onReady(d.params);
+    if (d.type === "ready") onReady(d.params, d.ccForName);
     else if (d.type === "scaleLoaded") $("#sclStatus").textContent = d.ok ? `loaded ${d.name || "scale"}` : "load failed";
     else if (d.type === "keymapLoaded") $("#kbmStatus").textContent = d.ok ? `loaded ${d.name || "keymap"}` : "load failed";
+    else if (d.type === "controllersLoaded") $("#ctrlStatus").textContent = d.ok ? `loaded ${d.name || "mappings"}` : "load failed";
+    else if (d.type === "ccMap") applyCcMap(d.ccForName);
+    else if (d.type === "controllers") downloadText("amsynth-controllers.txt", d.text);
   };
   await ctx.resume();
   $("#panic").disabled = false;
@@ -111,32 +126,52 @@ const send = (m) => node && node.port.postMessage(m);
 $("#start").onclick = start;
 $("#panic").onclick = () => send({ type: "allOff" });
 
-function onReady(params) {
+function onReady(params, ccForName) {
   $("#status").textContent = `running · ${ctx.sampleRate} Hz · ${params.length} parameters`;
-  buildParams(params);
+  buildParams(params, ccForName);
 }
 
 // ---- parameter sliders --------------------------------------------------
-function buildParams(params) {
+const ccBadges = {}; // paramName -> badge span
+
+function buildParams(params, ccForName) {
   const wrap = $("#params");
   wrap.innerHTML = "";
   for (const p of params) {
     const pretty = p.name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
     const div = document.createElement("div");
     div.className = "param";
-    const span = document.createElement("b");
-    span.textContent = fmt(p.value);
+    const val = document.createElement("b");
+    val.textContent = fmt(p.value);
+    const cc = document.createElement("span");
+    cc.className = "ccbadge";
+    ccBadges[p.name] = cc;
+    const name = document.createElement("span");
+    name.append(document.createTextNode(pretty + " "), cc);
     const lab = document.createElement("label");
-    lab.append(document.createTextNode(pretty), span);
+    lab.append(name, val);
     const r = document.createElement("input");
     r.type = "range"; r.min = p.min; r.max = p.max; r.value = p.value;
     r.step = (p.max - p.min) / 1000 || 0.001;
-    r.oninput = () => { const v = parseFloat(r.value); span.textContent = fmt(v); send({ type: "param", index: p.index, value: v }); };
+    r.oninput = () => { const v = parseFloat(r.value); val.textContent = fmt(v); send({ type: "param", index: p.index, value: v }); };
     div.append(lab, r);
     wrap.append(div);
   }
+  applyCcMap(ccForName);
+}
+function applyCcMap(ccForName) {
+  for (const name in ccBadges) {
+    const cc = ccForName ? ccForName[name] : undefined;
+    ccBadges[name].textContent = (cc === undefined || cc === null) ? "" : `CC${cc}`;
+  }
 }
 const fmt = (v) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(2));
+function downloadText(filename, text) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+  a.download = filename; a.click();
+  URL.revokeObjectURL(a.href);
+}
 
 // ---- piano keyboard -----------------------------------------------------
 const LOW = 36, HIGH = 84; // C2..C6
@@ -269,6 +304,14 @@ $("#kbmFile").onchange = async (e) => {
   if (f) send({ type: "loadKeymap", text: await f.text(), name: f.name });
 };
 $("#kbmReset").onclick = () => { send({ type: "loadKeymap", text: "", name: "linear" }); $("#kbmStatus").textContent = "default linear"; };
+
+// ---- MIDI CC mappings ---------------------------------------------------
+$("#ctrlFile").onchange = async (e) => {
+  const f = e.target.files[0];
+  if (f) send({ type: "loadControllers", text: await f.text(), name: f.name });
+};
+$("#ctrlExport").onclick = () => send({ type: "getControllers" });
+$("#ctrlReset").onclick = () => { send({ type: "loadControllers", text: "", name: "defaults" }); $("#ctrlStatus").textContent = "built-in defaults"; };
 
 buildPiano();
 </script>
