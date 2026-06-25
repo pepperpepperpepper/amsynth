@@ -89,6 +89,16 @@ class AmsynthProcessor extends AudioWorkletProcessor {
       case "tonicSplit": ex.synth_set_tonic_split(m.enabled ? 1 : 0); break;
       case "splitPoint": ex.synth_set_tonic_split_point(m.note); break;
       case "tonicRoot":  ex.synth_set_tonic_root(m.note); break;
+      case "loadScale": {
+        const bytes = new TextEncoder().encode(m.text || "");
+        const ptr = ex.synth_scale_buffer();
+        const cap = ex.synth_scale_buffer_size();
+        const n = Math.min(bytes.length, cap - 1);
+        new Uint8Array(this.mem.buffer, ptr, n).set(bytes.subarray(0, n));
+        const rc = ex.synth_load_scale(n);
+        this.port.postMessage({ type: "scaleLoaded", ok: rc === 0, name: m.name || "" });
+        break;
+      }
     }
   }
 

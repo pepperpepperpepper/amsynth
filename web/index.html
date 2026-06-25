@@ -54,12 +54,18 @@
 
   <section>
     <h2>Tonic split (just-intonation movable key center)</h2>
+    <div class="tonic" style="margin-bottom:10px">
+      <label>Scala scale <input type="file" id="sclFile" accept=".scl"></label>
+      <button class="secondary" type="button" id="sclJI">Load 5-limit JI</button>
+      <button class="secondary" type="button" id="scl12">Reset 12-TET</button>
+      <span id="sclStatus" class="hint" style="margin:0">default 12-TET</span>
+    </div>
     <div class="tonic">
-      <label><input type="checkbox" id="splitEnable"> Enable</label>
+      <label><input type="checkbox" id="splitEnable"> Enable split</label>
       <label>Split point <select id="splitPoint"></select></label>
       <label>Set tonic <select id="tonicRoot"></select></label>
     </div>
-    <div class="hint">With split enabled, keys <b>below</b> the split point (shown grey) re-root the scale instead of sounding. Load an .scl scale to hear it; with the default 12-TET scale the re-root is inaudible but the control zone still swallows those keys.</div>
+    <div class="hint">Load a non-12-TET scale (e.g. <b>5-limit JI</b>), then enable the split. Keys <b>below</b> the split point (shown grey) re-root the scale instead of sounding — play one, then play higher keys to hear the tonic move. With the default 12-TET scale the re-root is inaudible but the control zone still swallows those keys.</div>
   </section>
 
   <section>
@@ -84,7 +90,11 @@ async function start() {
     processorOptions: { wasmBytes: bytes },
   });
   node.connect(ctx.destination);
-  node.port.onmessage = (e) => { if (e.data.type === "ready") onReady(e.data.params); };
+  node.port.onmessage = (e) => {
+    const d = e.data;
+    if (d.type === "ready") onReady(d.params);
+    else if (d.type === "scaleLoaded") $("#sclStatus").textContent = d.ok ? `loaded ${d.name || "scale"}` : "load failed";
+  };
   await ctx.resume();
   $("#panic").disabled = false;
 }
@@ -194,6 +204,30 @@ fillNotes($("#tonicRoot"), 48, 72, 60);
 $("#splitEnable").onchange = (e) => { splitOn = e.target.checked; send({ type: "tonicSplit", enabled: splitOn }); refreshZones(); };
 $("#splitPoint").onchange = (e) => { splitPoint = +e.target.value; send({ type: "splitPoint", note: splitPoint }); refreshZones(); };
 $("#tonicRoot").onchange = (e) => send({ type: "tonicRoot", note: +e.target.value });
+
+// ---- scale loading ------------------------------------------------------
+const JI_SCL = `! ji5.scl
+5-limit just intonation
+12
+16/15
+9/8
+6/5
+5/4
+4/3
+45/32
+3/2
+8/5
+5/3
+9/5
+15/8
+2/1
+`;
+$("#sclFile").onchange = async (e) => {
+  const f = e.target.files[0];
+  if (f) send({ type: "loadScale", text: await f.text(), name: f.name });
+};
+$("#sclJI").onclick = () => send({ type: "loadScale", text: JI_SCL, name: "5-limit JI" });
+$("#scl12").onclick = () => { send({ type: "loadScale", text: "", name: "12-TET" }); $("#sclStatus").textContent = "default 12-TET"; };
 
 buildPiano();
 </script>

@@ -16,6 +16,7 @@
  */
 
 #include "core/synth/Synthesizer.h"
+#include "core/synth/VoiceAllocationUnit.h"
 #include "core/controls.h"
 #include "core/midi.h"
 #include "core/types.h"
@@ -119,6 +120,16 @@ float synth_param_default(int i)
 EMSCRIPTEN_KEEPALIVE float *synth_out_left()  { return gOutL; }
 EMSCRIPTEN_KEEPALIVE float *synth_out_right() { return gOutR; }
 
+// Frequency (Hz) the current tuning maps a MIDI note to. Reflects the loaded
+// scale and any tonic-split re-root; handy for introspection/tests/UI readout.
+EMSCRIPTEN_KEEPALIVE
+double synth_note_to_pitch(int note)
+{
+	if (gSynth && note >= 0 && note < 128)
+		return gSynth->_voiceAllocationUnit->noteToPitch(note);
+	return -1.0;
+}
+
 // Render nframes of stereo audio into the scratch buffers.
 EMSCRIPTEN_KEEPALIVE
 void synth_process(int nframes)
@@ -141,6 +152,30 @@ void synth_process(int nframes)
 	gSynth->process((unsigned)nframes, gMidiIn, gMidiOut, gOutL, gOutR, 1);
 
 	gQueue.clear();
+}
+
+// --- Scala scale loading ----------------------------------------------------
+// JS writes .scl text into this buffer, then calls synth_load_scale(len).
+
+constexpr int kScaleBufSize = 1 << 16;
+char gScaleBuf[kScaleBufSize];
+
+EMSCRIPTEN_KEEPALIVE char *synth_scale_buffer()      { return gScaleBuf; }
+EMSCRIPTEN_KEEPALIVE int   synth_scale_buffer_size() { return kScaleBufSize; }
+
+// Loads the .scl text currently in the scale buffer. len <= 0 resets to the
+// default 12-TET scale. Returns 0 on success.
+EMSCRIPTEN_KEEPALIVE
+int synth_load_scale(int len)
+{
+	if (!gSynth)
+		return -1;
+	if (len <= 0)
+		return gSynth->loadTuningScaleFromString("");
+	if (len >= kScaleBufSize)
+		return -1;
+	gScaleBuf[len] = '\0';
+	return gSynth->loadTuningScaleFromString(gScaleBuf);
 }
 
 // --- Tonic-split demo controls (the feature wired up earlier) ---------------

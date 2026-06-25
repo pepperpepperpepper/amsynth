@@ -20,6 +20,7 @@ at the DSP level.
 | `index.html`           | UI: keyboard, parameter sliders, tonic-split demo |
 | `test-node.mjs`        | headless check that the engine makes sound in wasm |
 | `test-worklet.mjs`     | headless check of the actual worklet code path |
+| `test-scale.mjs`       | headless check of the .scl loader + tonic-split re-root |
 
 ## Build
 
@@ -54,6 +55,7 @@ thread and handed to the worklet via `processorOptions` (no SharedArrayBuffer).
 ```sh
 node web/test-node.mjs      # engine path: plays a note, checks the output is non-silent
 node web/test-worklet.mjs   # worklet path: same, through amsynth-processor.js
+node web/test-scale.mjs     # loads an .scl, re-roots via the control zone, verifies pitch
 ```
 
 ## How it fits together
@@ -77,6 +79,8 @@ the module instantiable inside an AudioWorklet with only a few WASI stubs.
 - **Generic sliders**, not the skinned panel. The skin PNGs + `layout.ini` in
   `data/skins/default` could be reused on a canvas for a faithful UI.
 - **No MIDI input.** Add the Web MIDI API and forward note/CC to the worklet.
-- **Tonic split** is wired, but with the default 12-TET scale the re-root is
-  inaudible; load a `.scl` scale (needs a small `loadTuningScale` bridge that
-  accepts file bytes) to hear it.
+- **Scala scales** load from a file or the built-in 5-limit JI example (the
+  page's "Load 5-limit JI" button). With the default 12-TET scale the
+  tonic-split re-root is inaudible by design; load a non-12-TET scale to hear
+  the tonic move as you play control-zone keys. Keymap (.kbm) loading from a
+  string is not wired yet — only the scale (.scl).
