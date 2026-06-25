@@ -89,17 +89,20 @@ class AmsynthProcessor extends AudioWorkletProcessor {
       case "tonicSplit": ex.synth_set_tonic_split(m.enabled ? 1 : 0); break;
       case "splitPoint": ex.synth_set_tonic_split_point(m.note); break;
       case "tonicRoot":  ex.synth_set_tonic_root(m.note); break;
-      case "loadScale": {
-        const bytes = new TextEncoder().encode(m.text || "");
-        const ptr = ex.synth_scale_buffer();
-        const cap = ex.synth_scale_buffer_size();
-        const n = Math.min(bytes.length, cap - 1);
-        new Uint8Array(this.mem.buffer, ptr, n).set(bytes.subarray(0, n));
-        const rc = ex.synth_load_scale(n);
-        this.port.postMessage({ type: "scaleLoaded", ok: rc === 0, name: m.name || "" });
-        break;
-      }
+      case "loadScale":  this.loadText(m.text, ex.synth_load_scale, "scaleLoaded", m.name); break;
+      case "loadKeymap": this.loadText(m.text, ex.synth_load_keymap, "keymapLoaded", m.name); break;
     }
+  }
+
+  // Write .scl/.kbm text into the shared wasm buffer and invoke its loader.
+  loadText(text, loadFn, replyType, name) {
+    const bytes = new TextEncoder().encode(text || "");
+    const ptr = this.ex.synth_text_buffer();
+    const cap = this.ex.synth_text_buffer_size();
+    const n = Math.min(bytes.length, cap - 1);
+    new Uint8Array(this.mem.buffer, ptr, n).set(bytes.subarray(0, n));
+    const rc = loadFn(n);
+    this.port.postMessage({ type: replyType, ok: rc === 0, name: name || "" });
   }
 
   process(_inputs, outputs) {

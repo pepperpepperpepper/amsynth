@@ -154,17 +154,18 @@ void synth_process(int nframes)
 	gQueue.clear();
 }
 
-// --- Scala scale loading ----------------------------------------------------
-// JS writes .scl text into this buffer, then calls synth_load_scale(len).
+// --- Scala scale / keymap loading -------------------------------------------
+// JS writes .scl or .kbm text into this shared buffer, then calls the matching
+// loader (synth_load_scale / synth_load_keymap).
 
-constexpr int kScaleBufSize = 1 << 16;
-char gScaleBuf[kScaleBufSize];
+constexpr int kTextBufSize = 1 << 16;
+char gTextBuf[kTextBufSize];
 
-EMSCRIPTEN_KEEPALIVE char *synth_scale_buffer()      { return gScaleBuf; }
-EMSCRIPTEN_KEEPALIVE int   synth_scale_buffer_size() { return kScaleBufSize; }
+EMSCRIPTEN_KEEPALIVE char *synth_text_buffer()      { return gTextBuf; }
+EMSCRIPTEN_KEEPALIVE int   synth_text_buffer_size() { return kTextBufSize; }
 
-// Loads the .scl text currently in the scale buffer. len <= 0 resets to the
-// default 12-TET scale. Returns 0 on success.
+// Loads the .scl text in the buffer. len <= 0 resets to the default 12-TET
+// scale. Returns 0 on success.
 EMSCRIPTEN_KEEPALIVE
 int synth_load_scale(int len)
 {
@@ -172,10 +173,25 @@ int synth_load_scale(int len)
 		return -1;
 	if (len <= 0)
 		return gSynth->loadTuningScaleFromString("");
-	if (len >= kScaleBufSize)
+	if (len >= kTextBufSize)
 		return -1;
-	gScaleBuf[len] = '\0';
-	return gSynth->loadTuningScaleFromString(gScaleBuf);
+	gTextBuf[len] = '\0';
+	return gSynth->loadTuningScaleFromString(gTextBuf);
+}
+
+// Loads the .kbm text in the buffer. len <= 0 resets to the default linear
+// keymap. Returns 0 on success.
+EMSCRIPTEN_KEEPALIVE
+int synth_load_keymap(int len)
+{
+	if (!gSynth)
+		return -1;
+	if (len <= 0)
+		return gSynth->loadTuningKeymapFromString("");
+	if (len >= kTextBufSize)
+		return -1;
+	gTextBuf[len] = '\0';
+	return gSynth->loadTuningKeymapFromString(gTextBuf);
 }
 
 // --- Tonic-split demo controls (the feature wired up earlier) ---------------

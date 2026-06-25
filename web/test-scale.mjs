@@ -54,11 +54,20 @@ for (let b = 0; b < 40; b++) {
 }
 check("control-zone keys are silent", peak < 1e-4);
 
-// Reset to default 12-TET.
+// Reset scale + split back to default 12-TET.
 proc.onMessage({ type: "loadScale", text: "", name: "12-TET" });
 proc.onMessage({ type: "tonicSplit", enabled: false });
 check("reset back to 12-TET A4 == 440", close(pitch(69), 440));
 
+// Keymap (.kbm): an automatic-linear map that retunes the reference to 432 Hz.
+let kbmOk = null;
+proc.port._recv = (m) => { if (m.type === "keymapLoaded") kbmOk = m.ok; };
+proc.onMessage({ type: "loadKeymap", text: "! k.kbm\n0\n0\n127\n60\n69\n432.0\n1\n", name: "432" });
+check("kbm loaded ok", kbmOk === true);
+check("keymap retunes A4 to 432 Hz", close(pitch(69), 432));
+proc.onMessage({ type: "loadKeymap", text: "", name: "linear" });
+check("reset keymap -> A4 back to 440", close(pitch(69), 440));
+
 const pass = checks.every(Boolean);
-console.log(pass ? "PASS: scale loader + tonic split verified in wasm" : "FAIL");
+console.log(pass ? "PASS: scale + keymap loaders + tonic split verified in wasm" : "FAIL");
 process.exit(pass ? 0 : 1);

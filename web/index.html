@@ -60,6 +60,11 @@
       <button class="secondary" type="button" id="scl12">Reset 12-TET</button>
       <span id="sclStatus" class="hint" style="margin:0">default 12-TET</span>
     </div>
+    <div class="tonic" style="margin-bottom:10px">
+      <label>Keyboard map <input type="file" id="kbmFile" accept=".kbm"></label>
+      <button class="secondary" type="button" id="kbmReset">Reset keymap</button>
+      <span id="kbmStatus" class="hint" style="margin:0">default linear</span>
+    </div>
     <div class="tonic">
       <label><input type="checkbox" id="splitEnable"> Enable split</label>
       <label>Split point <select id="splitPoint"></select></label>
@@ -94,6 +99,7 @@ async function start() {
     const d = e.data;
     if (d.type === "ready") onReady(d.params);
     else if (d.type === "scaleLoaded") $("#sclStatus").textContent = d.ok ? `loaded ${d.name || "scale"}` : "load failed";
+    else if (d.type === "keymapLoaded") $("#kbmStatus").textContent = d.ok ? `loaded ${d.name || "keymap"}` : "load failed";
   };
   await ctx.resume();
   $("#panic").disabled = false;
@@ -228,6 +234,11 @@ $("#sclFile").onchange = async (e) => {
 };
 $("#sclJI").onclick = () => send({ type: "loadScale", text: JI_SCL, name: "5-limit JI" });
 $("#scl12").onclick = () => { send({ type: "loadScale", text: "", name: "12-TET" }); $("#sclStatus").textContent = "default 12-TET"; };
+$("#kbmFile").onchange = async (e) => {
+  const f = e.target.files[0];
+  if (f) send({ type: "loadKeymap", text: await f.text(), name: f.name });
+};
+$("#kbmReset").onclick = () => { send({ type: "loadKeymap", text: "", name: "linear" }); $("#kbmStatus").textContent = "default linear"; };
 
 buildPiano();
 </script>
