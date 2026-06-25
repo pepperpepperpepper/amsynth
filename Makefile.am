@@ -75,12 +75,6 @@ libcore_la_SOURCES = \
 	external/freeverb/revmodel.cpp \
 	external/freeverb/revmodel.hpp \
 	external/freeverb/tuning.h \
-	external/JUCE/modules/juce_audio_plugin_client/utility/juce_LinuxMessageThread.h \
-	external/JUCE/modules/juce_core/juce_core.cpp \
-	external/JUCE/modules/juce_data_structures/juce_data_structures.cpp \
-	external/JUCE/modules/juce_events/juce_events.cpp \
-	external/JUCE/modules/juce_graphics/juce_graphics.cpp \
-	external/JUCE/modules/juce_gui_basics/juce_gui_basics.cpp \
 	external/seq24/controllers.h \
 	src/core/Configuration.cpp \
 	src/core/Configuration.h \
@@ -88,15 +82,6 @@ libcore_la_SOURCES = \
 	src/core/filesystem.cpp \
 	src/core/filesystem.h \
 	src/core/gettext.h \
-	src/core/gui/ControlPanel.cpp \
-	src/core/gui/ControlPanel.h \
-	src/core/gui/Controls.cpp \
-	src/core/gui/Controls.h \
-	src/core/gui/JuceIntegration.cpp \
-	src/core/gui/JuceIntegration.h \
-	src/core/gui/LayoutDescription.h \
-	src/core/gui/MainComponent.cpp \
-	src/core/gui/MainComponent.h \
 	src/core/midi.h \
 	src/core/synth/ADSR.cpp \
 	src/core/synth/ADSR.h \
@@ -131,6 +116,27 @@ if BUILD_MTS_ESP
 libcore_la_SOURCES += \
 	external/MTS-ESP/Client/libMTSClient.cpp \
 	external/MTS-ESP/Client/libMTSClient.h
+endif
+
+# The GUI pulls in JUCE (graphics/gui_basics need freetype + X11). Keep it out
+# of headless (--without-gui) builds so the engine has no JUCE/X dependency.
+if BUILD_GUI
+libcore_la_SOURCES += \
+	external/JUCE/modules/juce_audio_plugin_client/utility/juce_LinuxMessageThread.h \
+	external/JUCE/modules/juce_core/juce_core.cpp \
+	external/JUCE/modules/juce_data_structures/juce_data_structures.cpp \
+	external/JUCE/modules/juce_events/juce_events.cpp \
+	external/JUCE/modules/juce_graphics/juce_graphics.cpp \
+	external/JUCE/modules/juce_gui_basics/juce_gui_basics.cpp \
+	src/core/gui/ControlPanel.cpp \
+	src/core/gui/ControlPanel.h \
+	src/core/gui/Controls.cpp \
+	src/core/gui/Controls.h \
+	src/core/gui/JuceIntegration.cpp \
+	src/core/gui/JuceIntegration.h \
+	src/core/gui/LayoutDescription.h \
+	src/core/gui/MainComponent.cpp \
+	src/core/gui/MainComponent.h
 endif
 
 ################################################################################

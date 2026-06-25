@@ -118,8 +118,9 @@ AC_CHECK_LIB(pthread, pthread_create, [], exit)
 
 AS_IF([test "x$with_gui" != "xno"], [PKG_CHECK_MODULES([JUCE], [freetype2 libpng x11 zlib])])
 
-AS_IF([test -f "$srcdir/external/JUCE/modules/juce_core/juce_core.cpp"], [],
-      [AC_MSG_ERROR([cannot find JUCE source code; if this is a git checkout run `git submodule update --init` and try again])])
+AS_IF([test "x$with_gui" != "xno"],
+      [AS_IF([test -f "$srcdir/external/JUCE/modules/juce_core/juce_core.cpp"], [],
+             [AC_MSG_ERROR([cannot find JUCE source code; if this is a git checkout run `git submodule update --init` and try again])])])
 
 dnl ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 dnl
@@ -132,6 +133,7 @@ AS_IF([test "x$with_gui" != "xno"], [
        with_gui="yes"], [
        with_gui="no"
        with_lv2="no"
+       with_vst="no"
        with_dssi_gui="no"])
 AM_CONDITIONAL([BUILD_GUI], [test "x$with_gui" != "xno"])
 AM_CONDITIONAL([BUILD_WITHOUT_GUI], [test "x$with_gui" != "xyes"])
