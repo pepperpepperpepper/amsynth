@@ -339,6 +339,15 @@ int Synthesizer::loadTuningScale(const char *filename)
 	return 0;
 }
 
+int Synthesizer::loadTuningScaleFromString(const char *scaleData)
+{
+	if (scaleData && strlen(scaleData))
+		return _voiceAllocationUnit->loadScaleFromString(scaleData);
+
+	_voiceAllocationUnit->tuningMap.defaultScale();
+	return 0;
+}
+
 void Synthesizer::setSampleRate(int sampleRate)
 {
 	_sampleRate = sampleRate;

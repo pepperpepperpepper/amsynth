@@ -497,6 +497,12 @@ VoiceAllocationUnit::loadScale		(const std::string & sclFileName)
 }
 
 int
+VoiceAllocationUnit::loadScaleFromString	(const std::string & scaleData)
+{
+	return tuningMap.loadScaleFromString(scaleData);
+}
+
+int
 VoiceAllocationUnit::loadKeyMap		(const std::string & kbmFileName)
 {
 	return tuningMap.loadKeyMap(kbmFileName);

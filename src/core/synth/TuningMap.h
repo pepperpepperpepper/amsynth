@@ -22,6 +22,7 @@
 #ifndef _TUNINGMAP_H
 #define _TUNINGMAP_H
 
+#include <iosfwd>
 #include <string>
 #include <vector>
 
@@ -43,8 +44,9 @@ public:
 		// Default is 12-equal, standard mapping
 
 	int	loadScale		(const std::string & filename);
+	int	loadScaleFromString	(const std::string & scaleData);
 	int	loadKeyMap		(const std::string & filename);
-	// Both return 0 on success
+	// All return 0 on success
 
 	void	defaultScale		();
 	void	defaultKeyMap		();
@@ -65,6 +67,8 @@ public:
 	bool	inActiveRange   (int note) const { return activeRange[note]; }
 
 private:
+	int	loadScaleStream		(std::istream & stream, const std::string & name);
+
 	std::string scaleFile;
 	std::string keyMapFile;
 

@@ -151,6 +151,19 @@ int
 TuningMap::loadScale		(const std::string & filename)
 {
 	std::ifstream file(filename.c_str());
+	return loadScaleStream(file, filename);
+}
+
+int
+TuningMap::loadScaleFromString	(const std::string & scaleData)
+{
+	std::istringstream stream(scaleData);
+	return loadScaleStream(stream, "<memory>");
+}
+
+int
+TuningMap::loadScaleStream	(std::istream & file, const std::string & name)
+{
 	std::string line;
 
 	bool gotDesc = false;
@@ -187,7 +200,7 @@ TuningMap::loadScale		(const std::string & filename)
 	if (!gotDesc || (int) newScale.size() != scaleSize)
 		return -1;
 
-	scaleFile = filename;
+	scaleFile = name;
 	scale = newScale;
 	updateBasePitch();
 	return 0;

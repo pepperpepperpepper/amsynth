@@ -99,6 +99,7 @@ public:
 
 	int loadTuningKeymap(const char *filename);
 	int loadTuningScale(const char *filename);
+	int loadTuningScaleFromString(const char *scaleData);
 
 	void setHzModeEnabled(bool enabled);
 	bool isHzModeEnabled() const { return hzModeEnabled_; }

@@ -417,6 +417,36 @@ TEST(testTuningMapSetRoot) {
     std::remove(sclPath.c_str());
 }
 
+TEST(testLoadScaleFromString) {
+    const char *scl =
+        "! ji.scl\n"
+        "JI test\n"
+        "3\n"
+        "9/8\n"
+        "5/4\n"
+        "2/1\n";
+
+    // Parsing from a string matches parsing from a file.
+    TuningMap tm;
+    assert(tm.loadScaleFromString(scl) == 0);
+    tm.setRoot(60);
+    assert(std::fabs(tm.noteToPitch(61) / tm.noteToPitch(60) - 9.0 / 8.0) < 1e-9);
+    assert(std::fabs(tm.noteToPitch(63) / tm.noteToPitch(60) - 2.0) < 1e-9);
+
+    // Through the Synthesizer entry point used by the wasm bridge.
+    Synthesizer synth;
+    synth.setSampleRate(44100);
+    assert(synth.loadTuningScaleFromString(scl) == 0);
+    assert(synth._voiceAllocationUnit->tuningMap.getScaleFile() == "<memory>");
+
+    // An empty string resets to the default 12-TET scale.
+    assert(synth.loadTuningScaleFromString("") == 0);
+    assert(synth._voiceAllocationUnit->tuningMap.isDefault());
+
+    // Malformed data is rejected and leaves the previous scale intact.
+    assert(tm.loadScaleFromString("not a scale") != 0);
+}
+
 TEST(testTonicSplitOverlay) {
     auto sclPath = writeTempFile(".scl",
                                  "! ji.scl\n"
@@ -519,6 +549,7 @@ int main(int argc, const char * argv[])  {
     RUN_TEST(testHzModeIgnoresMidiNotes);
     RUN_TEST(testHzInputGateAndPitch);
     RUN_TEST(testTuningMapSetRoot);
+    RUN_TEST(testLoadScaleFromString);
     RUN_TEST(testTonicSplitOverlay);
     RUN_TEST(testTuningSplitPersistedPerPreset);
     RUN_TEST(testTuningSplitAppliedOnPresetRecall);

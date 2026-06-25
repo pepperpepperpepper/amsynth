@@ -80,6 +80,7 @@ public:
 	bool	shouldPlayNote	(int note) const;
 	double	noteToPitch		(int note) const;
 	int		loadScale		(const std::string & sclFileName);
+	int		loadScaleFromString	(const std::string & scaleData);
 	int		loadKeyMap		(const std::string & kbmFileName);
 
 // private:
