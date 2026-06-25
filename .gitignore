@@ -69,6 +69,7 @@ test-suite.log
 web/*.wasm
 web/node_modules
 web/package-lock.json
+packaging/raspberry-pi/out
 win/**/*.vcxproj.user
 win/**/x64/**
 xcuserdata
