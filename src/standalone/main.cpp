@@ -110,13 +110,16 @@ static unsigned char *midiBuffer;
 static const size_t midiBufferSize = 4096;
 static int gui_midi_pipe[2];
 
+#include "ParameterQueue.h"
+
 static bool hzControlEnabled = false;
 static std::atomic<float> hzControlFrequencyHz {0.0f};
 static std::atomic<float> hzControlGate {0.0f};
 static std::atomic<float> hzControlVelocity {1.0f};
 
-#ifdef WITH_NSM
+#ifdef WITH_OSC
 static lo_server_thread hzControlOscServer = nullptr;
+static ParameterQueue s_paramQueue;
 
 static void hzOscErrorHandler(int num, const char *msg, const char *path)
 {
@@ -159,6 +162,28 @@ static int oscGateHandler(const char *, const char *types, lo_arg **argv, int ar
 static int oscVelocityHandler(const char *, const char *types, lo_arg **argv, int argc, lo_message, void *)
 {
 	if (argc > 0) hzControlVelocity.store(oscArgAsFloat(types[0], argv[0]), std::memory_order_relaxed);
+	return 0;
+}
+
+// /amsynth/parameter <name|index> <value>      (raw value)
+// /amsynth/parameter_norm <name|index> <value> (normalized 0..1; user != null)
+// Enqueued and applied on the audio thread via the lock-free queue.
+static int oscParameterHandler(const char *, const char *types, lo_arg **argv, int argc, lo_message, void *user)
+{
+	if (argc < 2) return 0;
+	int index = (types[0] == 's') ? parameter_index_from_name(&argv[0]->s)
+	                              : (int) oscArgAsFloat(types[0], argv[0]);
+	s_paramQueue.push(index, oscArgAsFloat(types[1], argv[1]), /*normalized=*/ user != nullptr);
+	return 0;
+}
+
+// /amsynth/property <name> <value>
+// Properties (presets, tuning, ...) may touch files, so they are applied here
+// on the OSC thread (never the audio thread) — the same model the GUI uses.
+static int oscPropertyHandler(const char *, const char *types, lo_arg **argv, int argc, lo_message, void *)
+{
+	if (argc < 2 || types[0] != 's' || types[1] != 's') return 0;
+	if (s_synthesizer) s_synthesizer->setProperty(&argv[0]->s, &argv[1]->s);
 	return 0;
 }
 #endif
@@ -559,11 +584,14 @@ int main( int argc, char *argv[] )
 	
 	bool no_gui = (getenv("AMSYNTH_NO_GUI") != nullptr);
 	std::string hzOscPort;
+	bool oscServerEnabled = false;
+	std::string oscPort;
 
 	static struct option longopts[] = {
 		{ "jack_autoconnect", optional_argument, nullptr, 0 },
 		{ "ui-scale", required_argument, nullptr, 0 },
 		{ "hz-osc", required_argument, nullptr, 0 },
+		{ "osc-port", required_argument, nullptr, 0 },
 		{ nullptr }
 	};
 	
@@ -599,6 +627,11 @@ int main( int argc, char *argv[] )
 					<< _("	            automatically connect jack audio ports to hardware I/O ports. (Default: true)") << "\n"
 					<< _("	--hz-osc <port>") << "\n"
 					<< _("	            accept Hz pitch control over OSC (enables Hz mode)") << "\n"
+					<< _("	--osc-port <port>") << "\n"
+					<< _("	            start an OSC server for live parameter/property control:") << "\n"
+					<< _("	            /amsynth/parameter <name|index> <value>") << "\n"
+					<< _("	            /amsynth/parameter_norm <name|index> <0..1>") << "\n"
+					<< _("	            /amsynth/property <name> <value>") << "\n"
 					<< "\n"
 					<< _("	--ui-scale <scale>") << "\n"
 					<< _("	            set the scaling factor for the GUI") << "\n"
@@ -648,6 +681,10 @@ int main( int argc, char *argv[] )
 					hzControlEnabled = true;
 					hzOscPort = optarg;
 				}
+				if (strcmp(longopts[longindex].name, "osc-port") == 0) {
+					oscServerEnabled = true;
+					oscPort = optarg;
+				}
 				break;
 			default:
 				break;
@@ -669,13 +706,15 @@ int main( int argc, char *argv[] )
 	}
 	s_synthesizer->loadBank(config.current_bank_file.c_str());
 
-	if (hzControlEnabled) {
-#ifdef WITH_NSM
-		s_synthesizer->setHzModeEnabled(true);
+	if (hzControlEnabled || oscServerEnabled) {
+#ifdef WITH_OSC
+		if (hzControlEnabled)
+			s_synthesizer->setHzModeEnabled(true);
 
-		hzControlOscServer = lo_server_thread_new(hzOscPort.c_str(), &hzOscErrorHandler);
+		const std::string &port = oscServerEnabled ? oscPort : hzOscPort;
+		hzControlOscServer = lo_server_thread_new(port.c_str(), &hzOscErrorHandler);
 		if (!hzControlOscServer) {
-			std::cerr << _("error: could not start OSC server on port ") << hzOscPort << std::endl;
+			std::cerr << _("error: could not start OSC server on port ") << port << std::endl;
 			return 1;
 		}
 
@@ -683,10 +722,13 @@ int main( int argc, char *argv[] )
 		lo_server_thread_add_method(hzControlOscServer, "/amsynth/hz", nullptr, &oscHzHandler, nullptr);
 		lo_server_thread_add_method(hzControlOscServer, "/amsynth/gate", nullptr, &oscGateHandler, nullptr);
 		lo_server_thread_add_method(hzControlOscServer, "/amsynth/velocity", nullptr, &oscVelocityHandler, nullptr);
+		lo_server_thread_add_method(hzControlOscServer, "/amsynth/parameter", nullptr, &oscParameterHandler, nullptr);
+		lo_server_thread_add_method(hzControlOscServer, "/amsynth/parameter_norm", nullptr, &oscParameterHandler, (void *) 1);
+		lo_server_thread_add_method(hzControlOscServer, "/amsynth/property", "ss", &oscPropertyHandler, nullptr);
 
 		lo_server_thread_start(hzControlOscServer);
 #else
-		std::cerr << _("error: --hz-osc not supported in this build") << std::endl;
+		std::cerr << _("error: OSC support not built in") << std::endl;
 		return 1;
 #endif
 	}
@@ -748,7 +790,7 @@ int main( int argc, char *argv[] )
 
 	audioOutput->Stop ();
 
-#ifdef WITH_NSM
+#ifdef WITH_OSC
 	if (hzControlOscServer) {
 		lo_server_thread_stop(hzControlOscServer);
 		lo_server_thread_free(hzControlOscServer);
@@ -789,6 +831,12 @@ void amsynth_audio_callback(
 								  hzControlGate.load(std::memory_order_relaxed),
 								  hzControlVelocity.load(std::memory_order_relaxed));
 	}
+
+#ifdef WITH_OSC
+	// Apply any queued OSC parameter changes here, on the audio thread.
+	if (s_synthesizer)
+		s_paramQueue.drainTo(*s_synthesizer);
+#endif
 
 	if (midiBuffer) {
 		unsigned char *buffer = midiBuffer;

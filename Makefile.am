@@ -168,7 +168,8 @@ amsynth_SOURCES = \
 	src/standalone/lash.c \
 	src/standalone/lash.h \
 	src/standalone/main.h \
-	src/standalone/main.cpp
+	src/standalone/main.cpp \
+	src/standalone/ParameterQueue.h
 
 if BUILD_NSM
 amsynth_SOURCES += \

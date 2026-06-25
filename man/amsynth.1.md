@@ -72,6 +72,13 @@ OPTIONS
 
 :   accept Hz pitch control over OSC (enables Hz mode)
 
+`--osc-port` \<port\>
+
+:   start an OSC server for live control. Accepts
+    `/amsynth/parameter <name|index> <value>`,
+    `/amsynth/parameter_norm <name|index> <0..1>` and
+    `/amsynth/property <name> <value>`.
+
 `--ui-scale` \<scale\>
 
 :   set the scaling factor to use for the control panel

@@ -174,6 +174,14 @@ AS_IF([test "x$with_nsm" != "xno"], [
         with_nsm="yes"], [with_nsm="no"])])
 AM_CONDITIONAL([BUILD_NSM], [test "x$with_nsm" = "xyes"])
 
+dnl OSC control (parameters/properties/Hz) over liblo, independent of NSM.
+AC_ARG_WITH([osc], [AS_HELP_STRING([--with-osc], [build OSC control support])])
+AS_IF([test "x$with_osc" != "xno"], [
+    PKG_CHECK_MODULES([LIBLO], [liblo], [
+        AC_DEFINE([WITH_OSC],, [Build OSC control support])
+        with_osc="yes"], [with_osc="no"])])
+AM_CONDITIONAL([BUILD_OSC], [test "x$with_osc" = "xyes"])
+
 dnl Optional targets
 
 AC_ARG_WITH([dssi], [AS_HELP_STRING([--with-dssi], [build DSSI plugin])])
@@ -265,6 +273,7 @@ echo \| Build DSSI GUI........................................ : $with_dssi_gui
 ])
 echo \| Build LV2 plugin...................................... : $with_lv2
 echo \| Build VST plugin...................................... : $with_vst
+echo \| Build OSC control..................................... : $with_osc
 echo \|
 echo \| Generate man pages using pandoc....................... : $with_pandoc
 echo \|

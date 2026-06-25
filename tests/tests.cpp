@@ -27,12 +27,15 @@
 #include "core/synth/Synthesizer.h"
 #include "core/synth/VoiceAllocationUnit.h"
 #include "core/synth/VoiceBoard.h"
+#include "standalone/ParameterQueue.h"
 
+#include <atomic>
 #include <cassert>
 #include <cmath>
 #include <cstdio>
 #include <fstream>
 #include <iostream>
+#include <thread>
 
 #ifndef _WIN32
 #include <unistd.h>
@@ -547,6 +550,51 @@ TEST(testLoadBankFromString) {
     assert(!synth.loadBankFromString("not a bank"));
 }
 
+TEST(testParameterQueue) {
+    Synthesizer synth;
+    synth.setSampleRate(44100);
+    ParameterQueue q;
+
+    // Pushed changes apply on drain: raw and normalized.
+    q.push(kAmsynthParameter_MasterVolume, 0.3f, /*normalized=*/false);
+    q.push(kAmsynthParameter_FilterCutoff, 1.0f, /*normalized=*/true); // -> max
+    q.drainTo(synth);
+    assert(std::fabs(synth.getParameterValue(kAmsynthParameter_MasterVolume) - 0.3f) < 1e-6);
+    assert(std::fabs(synth.getNormalizedParameterValue(kAmsynthParameter_FilterCutoff) - 1.0f) < 1e-6);
+
+    // Out-of-range indices are rejected.
+    assert(!q.push(-1, 0.f, false));
+    assert(!q.push(kAmsynthParameterCount, 0.f, false));
+
+    // Last write wins within a drain.
+    q.push(kAmsynthParameter_MasterVolume, 0.1f, false);
+    q.push(kAmsynthParameter_MasterVolume, 0.9f, false);
+    q.drainTo(synth);
+    assert(std::fabs(synth.getParameterValue(kAmsynthParameter_MasterVolume) - 0.9f) < 1e-6);
+
+    // Concurrent producer (OSC-thread role) + consumer (audio-thread role):
+    // stream values from one thread while draining from another. No crash, and
+    // the final state equals a direct set of the last accepted value.
+    std::atomic<bool> done {false};
+    std::atomic<float> lastPushed {0.f};
+    std::thread producer([&] {
+        for (int i = 0; i <= 200000; i++) {
+            float v = (float)(i % 1001) / 1000.f; // 0.000 .. 1.000
+            while (!q.push(kAmsynthParameter_MasterVolume, v, false)) { /* full: retry */ }
+            lastPushed.store(v, std::memory_order_relaxed);
+        }
+        done.store(true, std::memory_order_release);
+    });
+    while (!done.load(std::memory_order_acquire))
+        q.drainTo(synth);
+    producer.join();
+    q.drainTo(synth); // apply anything left after the producer finished
+
+    float drained = synth.getParameterValue(kAmsynthParameter_MasterVolume);
+    synth.setParameterValue(kAmsynthParameter_MasterVolume, lastPushed.load());
+    assert(std::fabs(synth.getParameterValue(kAmsynthParameter_MasterVolume) - drained) < 1e-6);
+}
+
 TEST(testTonicSplitOverlay) {
     auto sclPath = writeTempFile(".scl",
                                  "! ji.scl\n"
@@ -653,6 +701,7 @@ int main(int argc, const char * argv[])  {
     RUN_TEST(testLoadKeyMapFromString);
     RUN_TEST(testLoadControllerMapFromString);
     RUN_TEST(testLoadBankFromString);
+    RUN_TEST(testParameterQueue);
     RUN_TEST(testTonicSplitOverlay);
     RUN_TEST(testTuningSplitPersistedPerPreset);
     RUN_TEST(testTuningSplitAppliedOnPresetRecall);
