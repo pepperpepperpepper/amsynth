@@ -7,6 +7,45 @@
 //
 // Everything below runs on the audio thread, so the message handler and
 // process() never overlap — no locking needed.
+//
+// Note: AudioWorkletGlobalScope does NOT provide TextEncoder/TextDecoder, so we
+// use the small UTF-8 helpers below instead.
+
+function utf8Encode(str) {
+  const out = [];
+  for (let i = 0; i < str.length; i++) {
+    let c = str.charCodeAt(i);
+    if (c < 0x80) {
+      out.push(c);
+    } else if (c < 0x800) {
+      out.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));
+    } else if (c >= 0xd800 && c <= 0xdbff) { // high surrogate
+      c = 0x10000 + ((c & 0x3ff) << 10) + (str.charCodeAt(++i) & 0x3ff);
+      out.push(0xf0 | (c >> 18), 0x80 | ((c >> 12) & 0x3f), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
+    } else {
+      out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
+    }
+  }
+  return Uint8Array.from(out);
+}
+
+function utf8Decode(u8) {
+  let s = "", i = 0;
+  while (i < u8.length) {
+    let c = u8[i++];
+    if (c >= 0x80) {
+      if (c < 0xe0) c = ((c & 0x1f) << 6) | (u8[i++] & 0x3f);
+      else if (c < 0xf0) c = ((c & 0x0f) << 12) | ((u8[i++] & 0x3f) << 6) | (u8[i++] & 0x3f);
+      else {
+        c = ((c & 0x07) << 18) | ((u8[i++] & 0x3f) << 12) | ((u8[i++] & 0x3f) << 6) | (u8[i++] & 0x3f) - 0x10000;
+        s += String.fromCharCode(0xd800 + (c >> 10));
+        c = 0xdc00 + (c & 0x3ff);
+      }
+    }
+    s += String.fromCharCode(c);
+  }
+  return s;
+}
 
 class AmsynthProcessor extends AudioWorkletProcessor {
   constructor(options) {
@@ -42,44 +81,51 @@ class AmsynthProcessor extends AudioWorkletProcessor {
   }
 
   async boot(bytes) {
-    const { instance } = await WebAssembly.instantiate(bytes, this.imports());
-    const ex = instance.exports;
-    this.mem = ex.memory;
-    if (ex._initialize) ex._initialize();
-    else if (ex.__wasm_call_ctors) ex.__wasm_call_ctors();
-    ex.synth_init(sampleRate);
+    try {
+      const { instance } = await WebAssembly.instantiate(bytes, this.imports());
+      const ex = instance.exports;
+      this.mem = ex.memory;
+      if (ex._initialize) ex._initialize();
+      else if (ex.__wasm_call_ctors) ex.__wasm_call_ctors();
+      ex.synth_init(sampleRate);
 
-    this.ex = ex;
-    this.ptrL = ex.synth_out_left();
-    this.ptrR = ex.synth_out_right();
+      this.ex = ex;
+      this.ptrL = ex.synth_out_left();
+      this.ptrR = ex.synth_out_right();
 
-    // Build the parameter table for the UI.
-    const dec = new TextDecoder();
-    const readStr = (ptr) => {
-      const u8 = new Uint8Array(this.mem.buffer);
-      let end = ptr; while (u8[end]) end++;
-      return dec.decode(u8.subarray(ptr, end));
-    };
-    this.nparams = ex.synth_param_count();
-    const params = [];
-    for (let i = 0; i < this.nparams; i++) {
-      params.push({
-        index: i, name: readStr(ex.synth_param_name(i)),
-        min: ex.synth_param_min(i), max: ex.synth_param_max(i),
-        def: ex.synth_param_default(i), value: ex.synth_get_param(i),
-      });
+      // Build the parameter table for the UI.
+      const readStr = (ptr) => {
+        const u8 = new Uint8Array(this.mem.buffer);
+        let end = ptr; while (u8[end]) end++;
+        return utf8Decode(u8.subarray(ptr, end));
+      };
+      this.nparams = ex.synth_param_count();
+      const params = [];
+      for (let i = 0; i < this.nparams; i++) {
+        params.push({
+          index: i, name: readStr(ex.synth_param_name(i)),
+          min: ex.synth_param_min(i), max: ex.synth_param_max(i),
+          def: ex.synth_param_default(i), value: ex.synth_get_param(i),
+        });
+      }
+
+      for (const m of this.pending) this.apply(m);
+      this.pending.length = 0;
+      this.port.postMessage({ type: "ready", params, ccForName: this.readControllerMap() });
+    } catch (e) {
+      // Errors here are otherwise invisible (audio thread); surface them.
+      this.port.postMessage({ type: "bootError", msg: String(e && (e.stack || e.message || e)) });
     }
+  }
 
-    for (const m of this.pending) this.apply(m);
-    this.pending.length = 0;
-    this.port.postMessage({ type: "ready", params, ccForName: this.readControllerMap() });
+  // Decode `len` bytes from the shared text buffer.
+  readTextBuf(len) {
+    return utf8Decode(new Uint8Array(this.mem.buffer, this.ex.synth_text_buffer(), len));
   }
 
   // Read the current CC->parameter map back as { paramName: ccNumber }.
   readControllerMap() {
-    const len = this.ex.synth_get_controllers();
-    const text = new TextDecoder().decode(new Uint8Array(this.mem.buffer, this.ex.synth_text_buffer(), len));
-    const lines = text.split("\n");
+    const lines = this.readTextBuf(this.ex.synth_get_controllers()).split("\n");
     const ccForName = {};
     for (let cc = 0; cc < lines.length; cc++) {
       const name = lines[cc].trim();
@@ -97,9 +143,7 @@ class AmsynthProcessor extends AudioWorkletProcessor {
 
   // The loaded bank's 128 preset names.
   presetNames() {
-    const len = this.ex.synth_get_preset_names();
-    const text = new TextDecoder().decode(new Uint8Array(this.mem.buffer, this.ex.synth_text_buffer(), len));
-    const arr = text.split("\n");
+    const arr = this.readTextBuf(this.ex.synth_get_preset_names()).split("\n");
     if (arr.length && arr[arr.length - 1] === "") arr.pop();
     return arr;
   }
@@ -126,15 +170,12 @@ class AmsynthProcessor extends AudioWorkletProcessor {
         this.loadText(m.text, ex.synth_load_controllers, "controllersLoaded", m.name);
         this.port.postMessage({ type: "ccMap", ccForName: this.readControllerMap() });
         break;
-      case "getControllers": {
-        const len = ex.synth_get_controllers();
-        const text = new TextDecoder().decode(new Uint8Array(this.mem.buffer, ex.synth_text_buffer(), len));
-        this.port.postMessage({ type: "controllers", text });
+      case "getControllers":
+        this.port.postMessage({ type: "controllers", text: this.readTextBuf(ex.synth_get_controllers()) });
         break;
-      }
       case "loadBank": {
         // Banks can exceed the shared text buffer, so use a malloc'd buffer.
-        const bytes = new TextEncoder().encode(m.text || "");
+        const bytes = utf8Encode(m.text || "");
         const ptr = ex.malloc(bytes.length + 1);
         const mem = new Uint8Array(this.mem.buffer);
         mem.set(bytes, ptr);
@@ -152,9 +193,9 @@ class AmsynthProcessor extends AudioWorkletProcessor {
     }
   }
 
-  // Write .scl/.kbm text into the shared wasm buffer and invoke its loader.
+  // Write .scl/.kbm/controllers text into the shared wasm buffer and load it.
   loadText(text, loadFn, replyType, name) {
-    const bytes = new TextEncoder().encode(text || "");
+    const bytes = utf8Encode(text || "");
     const ptr = this.ex.synth_text_buffer();
     const cap = this.ex.synth_text_buffer_size();
     const n = Math.min(bytes.length, cap - 1);

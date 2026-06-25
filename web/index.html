@@ -121,6 +121,7 @@ async function start() {
   node.port.onmessage = (e) => {
     const d = e.data;
     if (d.type === "ready") onReady(d.params, d.ccForName);
+    else if (d.type === "bootError") $("#status").textContent = "engine error: " + d.msg;
     else if (d.type === "scaleLoaded") $("#sclStatus").textContent = d.ok ? `loaded ${d.name || "scale"}` : "load failed";
     else if (d.type === "keymapLoaded") $("#kbmStatus").textContent = d.ok ? `loaded ${d.name || "keymap"}` : "load failed";
     else if (d.type === "controllersLoaded") $("#ctrlStatus").textContent = d.ok ? `loaded ${d.name || "mappings"}` : "load failed";
