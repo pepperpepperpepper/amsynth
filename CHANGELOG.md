@@ -1,4 +1,25 @@
-## [Unreleased]
+## 1.14.0 (2026-06-25)
+
+First release of **AMsynth enhanced**, an independent fork of amsynth.
+
+  - Rebranded to "AMsynth enhanced" and bumped the version to 1.14.0. Internal
+    identifiers (binary name, package id, plugin URIs, JACK/ALSA client name)
+    are kept as `amsynth` for compatibility.
+  - Added a tonic-split keyboard mode: when enabled, keys below a configurable
+    split point silently re-root the active Scala scale (a movable key center),
+    so the just-intonation tonic can be changed live from a controller's lowest
+    octave. Configurable from the Options menu (Tuning -> Tonic Split), saved
+    per preset, and persisted in LV2 and DSSI plugin state.
+  - Scala tunings can now be set per preset; the .scl/.kbm selection is stored
+    with the preset and restored on recall.
+  - Bundled the Scala scale archive (5400+ .scl files) as the
+    `external/scala-tunings` git submodule.
+  - Added continuous-frequency (Hz) pitch control via OSC and an LV2 control
+    port, for microtonal and non-keyboard input.
+  - Build: configure now auto-enables ccache and the lld linker when available
+    (disable with `--disable-ccache` / `--disable-lld`) to speed up clean builds.
+
+Inherited from upstream amsynth (previously unreleased):
 
   - Ported the GUI from GTK2 to JUCE.
     PACKAGERS TAKE NOTE: build dependencies have changed!
