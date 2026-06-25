@@ -177,6 +177,14 @@ void Synthesizer::loadBank(const char *filename)
 	_presetController->selectPreset(_presetController->getCurrPresetNumber());
 }
 
+bool Synthesizer::loadBankFromString(const std::string &data)
+{
+	if (_presetController->loadPresetsFromString(data) != 0)
+		return false;
+	_presetController->selectPreset(0);
+	return true;
+}
+
 void Synthesizer::saveBank(const char *filename)
 {
 	_presetController->commitPreset();

@@ -520,6 +520,33 @@ TEST(testLoadControllerMapFromString) {
     assert(r1 > r0);                 // CC74 sweeps the cutoff again
 }
 
+TEST(testLoadBankFromString) {
+    Synthesizer synth;
+    synth.setSampleRate(44100);
+
+    std::string bank =
+        "amSynth\n"
+        "<preset> <name> First\n"
+        "<parameter> master_vol 0.25\n"
+        "<preset> <name> Second\n"
+        "<parameter> master_vol 0.75\n";
+
+    assert(synth.loadBankFromString(bank));
+    assert(synth.getPresetNumber() == 0); // first preset selected
+
+    PresetController *pc = synth.getPresetController();
+    assert(pc->getPreset(0).getName() == "First");
+    assert(pc->getPreset(1).getName() == "Second");
+    assert(std::fabs(synth.getParameterValue(kAmsynthParameter_MasterVolume) - 0.25f) < 1e-6);
+
+    // Selecting another preset updates the live parameter values.
+    synth.setPresetNumber(1);
+    assert(std::fabs(synth.getParameterValue(kAmsynthParameter_MasterVolume) - 0.75f) < 1e-6);
+
+    // Malformed data (bad header) is rejected.
+    assert(!synth.loadBankFromString("not a bank"));
+}
+
 TEST(testTonicSplitOverlay) {
     auto sclPath = writeTempFile(".scl",
                                  "! ji.scl\n"
@@ -625,6 +652,7 @@ int main(int argc, const char * argv[])  {
     RUN_TEST(testLoadScaleFromString);
     RUN_TEST(testLoadKeyMapFromString);
     RUN_TEST(testLoadControllerMapFromString);
+    RUN_TEST(testLoadBankFromString);
     RUN_TEST(testTonicSplitOverlay);
     RUN_TEST(testTuningSplitPersistedPerPreset);
     RUN_TEST(testTuningSplitAppliedOnPresetRecall);

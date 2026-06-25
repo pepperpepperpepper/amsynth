@@ -91,6 +91,7 @@ public:
 	
 	// Loading & Saving of bank files - NOT REALTIME SAFE
 	int		loadPresets			(const char *filename = NULL);
+	int		loadPresetsFromString(const std::string &data);
 	int		savePresets			(const char *filename = NULL);
 
 	// Switch bank at runtime - safe to call on audio thread

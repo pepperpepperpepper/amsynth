@@ -322,19 +322,15 @@ static float float_from_string(const char *s)
 	return rez * fact;
 }
 
-static bool readBankFile(const char *filename, Preset *presets)
+// Parses a bank from an in-memory buffer (modified in place). Returns false if
+// the header doesn't match.
+static bool parseBankBuffer(char *buffer, size_t buffer_length, Preset *presets)
 {
-	void *buffer = nullptr;
-	off_t buffer_length = file_read_contents(filename, &buffer);
-	if (!buffer)
+	if (buffer_length < sizeof(amsynth_file_header) ||
+	    memcmp(buffer, amsynth_file_header, sizeof(amsynth_file_header)) != 0)
 		return false;
 
-	if (memcmp(buffer, amsynth_file_header, sizeof(amsynth_file_header)) != 0) {
-		free(buffer);
-		return false;
-	}
-
-	char *buffer_end = ((char *)buffer) + buffer_length;
+	char *buffer_end = buffer + buffer_length;
 
 	int preset_index = -1;
 	char *line_ptr = (char *)buffer + sizeof(amsynth_file_header);
@@ -387,9 +383,19 @@ static bool readBankFile(const char *filename, Preset *presets)
 	}
 	for (preset_index++; preset_index < PresetController::kNumPresets; preset_index++)
 		presets[preset_index] = Preset();
-	free(buffer);
 
 	return true;
+}
+
+static bool readBankFile(const char *filename, Preset *presets)
+{
+	void *buffer = nullptr;
+	off_t buffer_length = file_read_contents(filename, &buffer);
+	if (!buffer)
+		return false;
+	bool ok = parseBankBuffer((char *)buffer, (size_t)buffer_length, presets);
+	free(buffer);
+	return ok;
 }
 
 int
@@ -417,6 +423,21 @@ PresetController::loadPresets		(const char *filename)
 	lastPresetsFileModifiedTime = fileModifiedTime;
 	bank_file = std::string(filename);
 
+	return 0;
+}
+
+int
+PresetController::loadPresetsFromString(const std::string &data)
+{
+	std::vector<char> buffer(data.begin(), data.end());
+	buffer.push_back('\0');
+	if (!parseBankBuffer(buffer.data(), data.size(), presets))
+		return -1;
+
+	// A bank loaded from memory isn't one of the on-disk banks.
+	currentBankNo = -1;
+	bank_file.clear();
+	lastPresetsFileModifiedTime = 0;
 	return 0;
 }
 

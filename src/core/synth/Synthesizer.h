@@ -69,6 +69,7 @@ public:
 	Properties getProperties();
     
     void loadBank(const char *filename);
+    bool loadBankFromString(const std::string &data);
     void saveBank(const char *filename);
 
 	std::string getState();
