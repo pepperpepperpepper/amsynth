@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AMsynth enhanced — web preview</title>
+<style>
+  :root { --bg:#222b30; --panel:#2c3940; --ink:#e7eef0; --muted:#8aa0a8; --accent:#e0a43b; --ctrl:#3a4b53; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.4 system-ui,sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:14px 18px; border-bottom:1px solid #0003; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  h1 { font-size:18px; margin:0; font-weight:600; }
+  h1 small { color:var(--muted); font-weight:400; }
+  button { font:inherit; color:var(--ink); background:var(--accent); border:0; border-radius:6px; padding:8px 16px; cursor:pointer; }
+  button.secondary { background:var(--ctrl); }
+  button:disabled { opacity:.5; cursor:default; }
+  #status { color:var(--muted); }
+  main { padding:18px; max-width:1100px; margin:0 auto; }
+  section { background:var(--panel); border-radius:10px; padding:16px; margin-bottom:18px; }
+  section h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 12px; }
+  .params { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px 20px; }
+  .param label { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); }
+  .param label b { color:var(--ink); font-weight:600; }
+  .param input[type=range] { width:100%; accent-color:var(--accent); }
+  /* piano */
+  #piano { position:relative; height:130px; user-select:none; touch-action:none; }
+  .key { position:absolute; bottom:0; border:1px solid #0006; border-radius:0 0 4px 4px; }
+  .key.white { width:34px; height:130px; background:#eef3f4; z-index:1; }
+  .key.black { width:22px; height:82px; background:#1b2226; z-index:2; }
+  .key.white.down { background:var(--accent); }
+  .key.black.down { background:#b87f1d; }
+  .key.zone { background:#5a6b73; }            /* control-zone key (tonic split) */
+  .key.white.zone.down, .key.black.zone.down { background:#3d8ec9; }
+  .tonic { display:flex; gap:18px; align-items:center; flex-wrap:wrap; }
+  .tonic label { display:flex; gap:6px; align-items:center; color:var(--muted); }
+  select { font:inherit; background:var(--ctrl); color:var(--ink); border:1px solid #0004; border-radius:5px; padding:4px 6px; }
+  .hint { color:var(--muted); font-size:12px; margin-top:8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>AMsynth enhanced <small>· web preview (Emscripten + AudioWorklet)</small></h1>
+  <button id="start">Start audio</button>
+  <button id="panic" class="secondary" disabled>All notes off</button>
+  <span id="status">click “Start audio” (a user gesture is required to begin)</span>
+</header>
+
+<main>
+  <section>
+    <h2>Keyboard</h2>
+    <div id="piano"></div>
+    <div class="hint">Click/tap the keys, or use your computer keyboard: <b>z s x d c v g b h n j m</b> (lower) and <b>q 2 w 3 e r 5 t 6 y 7 u</b> (upper). <b>x</b>/<b>c</b> shift octave.</div>
+  </section>
+
+  <section>
+    <h2>Tonic split (just-intonation movable key center)</h2>
+    <div class="tonic">
+      <label><input type="checkbox" id="splitEnable"> Enable</label>
+      <label>Split point <select id="splitPoint"></select></label>
+      <label>Set tonic <select id="tonicRoot"></select></label>
+    </div>
+    <div class="hint">With split enabled, keys <b>below</b> the split point (shown grey) re-root the scale instead of sounding. Load an .scl scale to hear it; with the default 12-TET scale the re-root is inaudible but the control zone still swallows those keys.</div>
+  </section>
+
+  <section>
+    <h2>Parameters</h2>
+    <div class="params" id="params"></div>
+  </section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+let node = null, ctx = null;
+
+// ---- audio setup --------------------------------------------------------
+async function start() {
+  $("#start").disabled = true;
+  $("#status").textContent = "loading…";
+  ctx = new AudioContext();
+  const bytes = await (await fetch("amsynth.wasm")).arrayBuffer();
+  await ctx.audioWorklet.addModule("amsynth-processor.js");
+  node = new AudioWorkletNode(ctx, "amsynth-processor", {
+    numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2],
+    processorOptions: { wasmBytes: bytes },
+  });
+  node.connect(ctx.destination);
+  node.port.onmessage = (e) => { if (e.data.type === "ready") onReady(e.data.params); };
+  await ctx.resume();
+  $("#panic").disabled = false;
+}
+const send = (m) => node && node.port.postMessage(m);
+
+$("#start").onclick = start;
+$("#panic").onclick = () => send({ type: "allOff" });
+
+function onReady(params) {
+  $("#status").textContent = `running · ${ctx.sampleRate} Hz · ${params.length} parameters`;
+  buildParams(params);
+}
+
+// ---- parameter sliders --------------------------------------------------
+function buildParams(params) {
+  const wrap = $("#params");
+  wrap.innerHTML = "";
+  for (const p of params) {
+    const pretty = p.name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    const div = document.createElement("div");
+    div.className = "param";
+    const span = document.createElement("b");
+    span.textContent = fmt(p.value);
+    const lab = document.createElement("label");
+    lab.append(document.createTextNode(pretty), span);
+    const r = document.createElement("input");
+    r.type = "range"; r.min = p.min; r.max = p.max; r.value = p.value;
+    r.step = (p.max - p.min) / 1000 || 0.001;
+    r.oninput = () => { const v = parseFloat(r.value); span.textContent = fmt(v); send({ type: "param", index: p.index, value: v }); };
+    div.append(lab, r);
+    wrap.append(div);
+  }
+}
+const fmt = (v) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(2));
+
+// ---- piano keyboard -----------------------------------------------------
+const LOW = 36, HIGH = 84; // C2..C6
+const WHITE = new Set([0, 2, 4, 5, 7, 9, 11]);
+const isWhite = (n) => WHITE.has(((n % 12) + 12) % 12);
+const NOTE_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const keyEls = {};
+let splitOn = false, splitPoint = 33;
+
+function buildPiano() {
+  const piano = $("#piano");
+  piano.innerHTML = "";
+  const W = 34;
+  let whites = 0;
+  for (let n = LOW; n <= HIGH; n++) {
+    const el = document.createElement("div");
+    el.className = "key " + (isWhite(n) ? "white" : "black");
+    el.dataset.note = n;
+    el.style.left = (isWhite(n) ? (whites * W) : (whites * W - 11)) + "px";
+    if (isWhite(n)) whites++;
+    piano.append(el);
+    keyEls[n] = el;
+  }
+  piano.style.width = whites * W + "px";
+  refreshZones();
+}
+
+function refreshZones() {
+  for (const n in keyEls) keyEls[n].classList.toggle("zone", splitOn && +n < splitPoint);
+}
+
+const pressed = new Set();
+function noteOn(n) {
+  if (pressed.has(n)) return;
+  pressed.add(n); send({ type: "noteOn", note: n, vel: 100 });
+  keyEls[n] && keyEls[n].classList.add("down");
+}
+function noteOff(n) {
+  if (!pressed.has(n)) return;
+  pressed.delete(n); send({ type: "noteOff", note: n });
+  keyEls[n] && keyEls[n].classList.remove("down");
+}
+
+$("#piano").addEventListener("pointerdown", (e) => {
+  const n = e.target.dataset && e.target.dataset.note;
+  if (n) { e.target.setPointerCapture(e.pointerId); noteOn(+n); }
+});
+$("#piano").addEventListener("pointerup", (e) => { const n = e.target.dataset && e.target.dataset.note; if (n) noteOff(+n); });
+$("#piano").addEventListener("pointercancel", (e) => { const n = e.target.dataset && e.target.dataset.note; if (n) noteOff(+n); });
+
+// ---- computer keyboard --------------------------------------------------
+let octave = 0;
+const MAP = { z:0,s:1,x:2,d:3,c:4,v:5,g:6,b:7,h:8,n:9,j:10,m:11,
+              q:12,2:13,w:14,3:15,e:16,r:17,5:18,t:19,6:20,y:21,7:22,u:23 };
+addEventListener("keydown", (e) => {
+  if (e.repeat || !node) return;
+  if (e.key === "x" && e.ctrlKey) return;
+  if (e.key in MAP) noteOn(60 + octave * 12 + MAP[e.key]);
+});
+addEventListener("keyup", (e) => { if (e.key in MAP) noteOff(60 + octave * 12 + MAP[e.key]); });
+
+// ---- tonic split controls ----------------------------------------------
+function fillNotes(sel, lo, hi, selected) {
+  for (let n = lo; n <= hi; n++) {
+    const o = document.createElement("option");
+    o.value = n; o.textContent = `${NOTE_NAMES[n % 12]}${Math.floor(n / 12) - 1} (${n})`;
+    if (n === selected) o.selected = true;
+    sel.append(o);
+  }
+}
+fillNotes($("#splitPoint"), 21, 48, 33);
+fillNotes($("#tonicRoot"), 48, 72, 60);
+$("#splitEnable").onchange = (e) => { splitOn = e.target.checked; send({ type: "tonicSplit", enabled: splitOn }); refreshZones(); };
+$("#splitPoint").onchange = (e) => { splitPoint = +e.target.value; send({ type: "splitPoint", note: splitPoint }); refreshZones(); };
+$("#tonicRoot").onchange = (e) => send({ type: "tonicRoot", note: +e.target.value });
+
+buildPiano();
+</script>
+</body>
+</html>

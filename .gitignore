@@ -66,6 +66,7 @@ po/stamp-it
 stamp-h1
 test-driver
 test-suite.log
+web/*.wasm
 win/**/*.vcxproj.user
 win/**/x64/**
 xcuserdata
