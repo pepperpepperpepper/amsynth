@@ -24,6 +24,7 @@ at the DSP level.
 | `test-midi.mjs`        | headless check of the raw-MIDI forwarder (notes + sustain CC) |
 | `test-controllers.mjs` | headless check of the CC->parameter map loading/export |
 | `test-bank.mjs`        | headless check of preset-bank loading + preset selection |
+| `test-browser.mjs`     | real-browser smoke test (Playwright): page boots to "running" |
 
 ## Build
 
@@ -62,6 +63,17 @@ node web/test-scale.mjs     # loads an .scl/.kbm, re-roots via the control zone,
 node web/test-midi.mjs      # raw-MIDI path: note-on makes sound, sustain CC holds/releases
 node web/test-controllers.mjs  # CC->parameter map: defaults, custom load, export, reset
 node web/test-bank.mjs      # preset bank: load (incl. >64 KB), names, preset selection
+```
+
+The Node tests run `amsynth-processor.js` in a Node global scope, which — unlike
+a real `AudioWorkletGlobalScope` — provides extras like `TextEncoder`/
+`TextDecoder`. To catch that class of browser-only bug, there's a Playwright
+smoke test that loads the page in real Chromium, clicks "Start audio", and
+asserts it reaches "running":
+
+```sh
+cd web && npm install && npx playwright install chromium
+node test-browser.mjs       # SKIPs (exit 0) if Playwright/Chromium are absent
 ```
 
 ## How it fits together

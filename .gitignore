@@ -67,6 +67,8 @@ stamp-h1
 test-driver
 test-suite.log
 web/*.wasm
+web/node_modules
+web/package-lock.json
 win/**/*.vcxproj.user
 win/**/x64/**
 xcuserdata
