@@ -3,6 +3,7 @@
 "_synth_note_on",
 "_synth_note_off",
 "_synth_all_notes_off",
+"_synth_midi",
 "_synth_set_param",
 "_synth_get_param",
 "_synth_param_count",

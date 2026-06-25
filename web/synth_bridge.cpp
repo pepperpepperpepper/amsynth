@@ -75,6 +75,22 @@ void synth_all_notes_off()
 	gQueue.push_back({{MIDI_STATUS_CONTROLLER, MIDI_CC_ALL_NOTES_OFF, 0}, 3});
 }
 
+// Forward a raw 1-3 byte MIDI channel-voice message (notes, CC, pitch bend,
+// program change, ...). The exact length matters: the engine parses a running-
+// status byte stream, so a 2-byte message must not be padded to 3.
+EMSCRIPTEN_KEEPALIVE
+void synth_midi(int b0, int b1, int b2, int length)
+{
+	if (length < 1 || length > 3)
+		return;
+	QueuedMidi q;
+	q.bytes[0] = (unsigned char)b0;
+	q.bytes[1] = (unsigned char)b1;
+	q.bytes[2] = (unsigned char)b2;
+	q.length = (unsigned)length;
+	gQueue.push_back(q);
+}
+
 EMSCRIPTEN_KEEPALIVE
 void synth_set_param(int index, float value)
 {

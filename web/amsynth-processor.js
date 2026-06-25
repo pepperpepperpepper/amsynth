@@ -85,6 +85,7 @@ class AmsynthProcessor extends AudioWorkletProcessor {
       case "noteOn":     ex.synth_note_on(m.note, m.vel); break;
       case "noteOff":    ex.synth_note_off(m.note); break;
       case "allOff":     ex.synth_all_notes_off(); break;
+      case "midi":       ex.synth_midi(m.b0, m.b1, m.b2, m.length); break;
       case "param":      ex.synth_set_param(m.index, m.value); break;
       case "tonicSplit": ex.synth_set_tonic_split(m.enabled ? 1 : 0); break;
       case "splitPoint": ex.synth_set_tonic_split_point(m.note); break;

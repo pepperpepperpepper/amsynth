@@ -21,6 +21,7 @@ at the DSP level.
 | `test-node.mjs`        | headless check that the engine makes sound in wasm |
 | `test-worklet.mjs`     | headless check of the actual worklet code path |
 | `test-scale.mjs`       | headless check of the .scl/.kbm loaders + tonic-split re-root |
+| `test-midi.mjs`        | headless check of the raw-MIDI forwarder (notes + sustain CC) |
 
 ## Build
 
@@ -56,6 +57,7 @@ thread and handed to the worklet via `processorOptions` (no SharedArrayBuffer).
 node web/test-node.mjs      # engine path: plays a note, checks the output is non-silent
 node web/test-worklet.mjs   # worklet path: same, through amsynth-processor.js
 node web/test-scale.mjs     # loads an .scl/.kbm, re-roots via the control zone, verifies pitch
+node web/test-midi.mjs      # raw-MIDI path: note-on makes sound, sustain CC holds/releases
 ```
 
 ## How it fits together
@@ -78,7 +80,13 @@ the module instantiable inside an AudioWorklet with only a few WASI stubs.
   bundling a `.bank` file and feeding it to `Synthesizer::loadBank` via MEMFS.
 - **Generic sliders**, not the skinned panel. The skin PNGs + `layout.ini` in
   `data/skins/default` could be reused on a canvas for a faithful UI.
-- **No MIDI input.** Add the Web MIDI API and forward note/CC to the worklet.
+- **Web MIDI input** is supported: connect a hardware controller and the page
+  forwards raw channel-voice messages (notes, pitch bend, sustain and other CC,
+  program change) to the worklet via `synth_midi`. Note: custom CC -> parameter
+  mappings need the controllers config file, which the wasm build doesn't load,
+  so only the engine's built-in CC handling (sustain, mod/pitch wheel,
+  all-notes-off, ...) applies. Web MIDI needs a secure context — `localhost`
+  counts.
 - **Scala scales (.scl) and keymaps (.kbm)** load from a file (or the built-in
   5-limit JI example via the page's "Load 5-limit JI" button). With the default
   12-TET scale the tonic-split re-root is inaudible by design; load a non-12-TET

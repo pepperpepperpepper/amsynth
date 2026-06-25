@@ -50,6 +50,7 @@
     <h2>Keyboard</h2>
     <div id="piano"></div>
     <div class="hint">Click/tap the keys, or use your computer keyboard: <b>z s x d c v g b h n j m</b> (lower) and <b>q 2 w 3 e r 5 t 6 y 7 u</b> (upper). <b>x</b>/<b>c</b> shift octave.</div>
+    <div class="hint" id="midiStatus">MIDI: start audio to enable hardware input</div>
   </section>
 
   <section>
@@ -103,6 +104,7 @@ async function start() {
   };
   await ctx.resume();
   $("#panic").disabled = false;
+  initMIDI();
 }
 const send = (m) => node && node.port.postMessage(m);
 
@@ -195,6 +197,34 @@ addEventListener("keydown", (e) => {
   if (e.key in MAP) noteOn(60 + octave * 12 + MAP[e.key]);
 });
 addEventListener("keyup", (e) => { if (e.key in MAP) noteOff(60 + octave * 12 + MAP[e.key]); });
+
+// ---- Web MIDI input -----------------------------------------------------
+const setKeyVisual = (n, on) => { const el = keyEls[n]; if (el) el.classList.toggle("down", on); };
+function onMIDI(e) {
+  const d = e.data;
+  if (!d || d.length === 0 || d[0] >= 0xf0) return; // skip system/sysex/realtime
+  const b0 = d[0], b1 = d[1] || 0, b2 = d[2] || 0;
+  send({ type: "midi", b0, b1, b2, length: d.length });
+  const status = b0 & 0xf0;
+  if (status === 0x90 && b2 > 0) setKeyVisual(b1, true);
+  else if (status === 0x80 || (status === 0x90 && b2 === 0)) setKeyVisual(b1, false);
+}
+async function initMIDI() {
+  const st = $("#midiStatus");
+  if (!navigator.requestMIDIAccess) { st.textContent = "MIDI: Web MIDI not supported in this browser"; return; }
+  let access;
+  try { access = await navigator.requestMIDIAccess(); }
+  catch (err) { st.textContent = "MIDI: access denied"; return; }
+  const attach = () => {
+    const inputs = [...access.inputs.values()];
+    for (const inp of inputs) inp.onmidimessage = onMIDI;
+    st.textContent = inputs.length
+      ? `MIDI: ${inputs.length} input(s) — ${inputs.map((i) => i.name).join(", ")}`
+      : "MIDI: enabled — connect a controller";
+  };
+  access.onstatechange = attach;
+  attach();
+}
 
 // ---- tonic split controls ----------------------------------------------
 function fillNotes(sel, lo, hi, selected) {
