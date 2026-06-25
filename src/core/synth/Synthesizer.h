@@ -102,6 +102,9 @@ public:
 	int loadTuningScale(const char *filename);
 	int loadTuningScaleFromString(const char *scaleData);
 
+	void loadControllerMapFromString(const char *data);
+	std::string getControllerMapString();
+
 	void setHzModeEnabled(bool enabled);
 	bool isHzModeEnabled() const { return hzModeEnabled_; }
 	void setHzInput(float frequencyHz, float gate, float velocity);

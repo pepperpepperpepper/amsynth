@@ -29,6 +29,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 
 
 MidiController::MidiController()
@@ -246,7 +247,21 @@ MidiController::loadControllerMap()
 	return;
 #endif
 
-	std::ifstream file(filesystem::get().controllers.c_str(), std::ios::out);
+	std::ifstream file(filesystem::get().controllers.c_str(), std::ios::in);
+	loadControllerMapStream(file);
+}
+
+void
+MidiController::loadControllerMapFromString(const std::string &data)
+{
+	clearControllerMap();
+	std::istringstream file(data);
+	loadControllerMapStream(file);
+}
+
+void
+MidiController::loadControllerMapStream(std::istream &file)
+{
 	std::string name;
 	file >> name;
 	for (int cc = 0; cc < MAX_CC && file.good(); cc++, file >> name) {
@@ -255,7 +270,17 @@ MidiController::loadControllerMap()
 		if (paramId >= 0 && paramId < kAmsynthParameterCount)
 			_param_to_cc_map[paramId] = cc;
 	}
-	file.close();
+}
+
+std::string
+MidiController::getControllerMapString()
+{
+	std::ostringstream out;
+	for (int cc = 0; cc < MAX_CC; cc++) {
+		const char *name = parameter_name_from_index(_cc_to_param_map[cc]);
+		out << (name ? name : "null") << "\n";
+	}
+	return out.str();
 }
 
 void

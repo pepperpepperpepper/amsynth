@@ -477,6 +477,49 @@ TEST(testLoadKeyMapFromString) {
     assert(tm.loadKeyMapFromString("not a keymap") != 0);
 }
 
+TEST(testLoadControllerMapFromString) {
+    Synthesizer synth;
+    synth.setSampleRate(44100);
+
+    std::vector<amsynth_midi_cc_t> midiOut;
+    float buf[64];
+    auto sendCC = [&](int cc, int val) {
+        unsigned char b[3] = {0xB0, (unsigned char)cc, (unsigned char)val};
+        amsynth_midi_event_t e {0, 3, b};
+        std::vector<amsynth_midi_event_t> in {e};
+        synth.process(32, in, midiOut, &buf[0], &buf[32]);
+    };
+    auto cutoff = [&]() { return synth.getParameterValue(kAmsynthParameter_FilterCutoff); };
+
+    // Default map: CC74 (Sound Controller 5) sweeps the filter cutoff.
+    sendCC(74, 0);   float d0 = cutoff();
+    sendCC(74, 127); float d1 = cutoff();
+    assert(d1 > d0);
+
+    // Custom map (one parameter name per line, line N = CC N): move the cutoff
+    // onto CC1 (mod wheel) and clear everything else.
+    std::string map;
+    for (int cc = 0; cc < 128; cc++)
+        map += (cc == 1 ? "filter_cutoff\n" : "null\n");
+    synth.loadControllerMapFromString(map.c_str());
+
+    sendCC(1, 0);    float lo = cutoff();
+    sendCC(1, 127);  float hi = cutoff();
+    assert(hi > lo);                 // CC1 now drives the cutoff
+
+    sendCC(1, 64);   float mid = cutoff();
+    sendCC(74, 0);   assert(cutoff() == mid); // old default CC74 is now inert
+
+    // The exported map reflects the forward mapping...
+    std::string dump = synth.getControllerMapString();
+    assert(dump.substr(0, dump.find('\n') + 1) == "null\n");        // CC0
+    // ...and an empty string restores the built-in defaults.
+    synth.loadControllerMapFromString("");
+    sendCC(74, 0);   float r0 = cutoff();
+    sendCC(74, 127); float r1 = cutoff();
+    assert(r1 > r0);                 // CC74 sweeps the cutoff again
+}
+
 TEST(testTonicSplitOverlay) {
     auto sclPath = writeTempFile(".scl",
                                  "! ji.scl\n"
@@ -581,6 +624,7 @@ int main(int argc, const char * argv[])  {
     RUN_TEST(testTuningMapSetRoot);
     RUN_TEST(testLoadScaleFromString);
     RUN_TEST(testLoadKeyMapFromString);
+    RUN_TEST(testLoadControllerMapFromString);
     RUN_TEST(testTonicSplitOverlay);
     RUN_TEST(testTuningSplitPersistedPerPreset);
     RUN_TEST(testTuningSplitAppliedOnPresetRecall);

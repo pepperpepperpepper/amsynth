@@ -357,6 +357,16 @@ int Synthesizer::loadTuningScaleFromString(const char *scaleData)
 	return 0;
 }
 
+void Synthesizer::loadControllerMapFromString(const char *data)
+{
+	_midiController->loadControllerMapFromString(data ? data : "");
+}
+
+std::string Synthesizer::getControllerMapString()
+{
+	return _midiController->getControllerMapString();
+}
+
 void Synthesizer::setSampleRate(int sampleRate)
 {
 	_sampleRate = sampleRate;

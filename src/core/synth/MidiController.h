@@ -26,6 +26,9 @@
 #include "Parameter.h"
 #include "../types.h"
 
+#include <iosfwd>
+#include <string>
+
 
 #define MAX_CC 128
 
@@ -62,6 +65,8 @@ public:
 
 	void	clearControllerMap();
 	void	loadControllerMap();
+	void	loadControllerMapFromString(const std::string &data);
+	std::string getControllerMapString();
 
 	int		getControllerForParameter(Param paramId);
 	void	setControllerForParameter(Param paramId, int cc);
@@ -79,6 +84,7 @@ private:
     void pitch_wheel_change(float val);
 
     void saveControllerMap();
+    void loadControllerMapStream(std::istream &file);
 
     PresetController *presetController = nullptr;
     unsigned char status, data, channel;
