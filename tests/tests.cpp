@@ -447,6 +447,36 @@ TEST(testLoadScaleFromString) {
     assert(tm.loadScaleFromString("not a scale") != 0);
 }
 
+TEST(testLoadKeyMapFromString) {
+    const char *kbm =
+        "! linear.kbm\n"
+        "0\n"     // map size 0 -> automatic linear mapping
+        "0\n"     // first note
+        "127\n"   // last note
+        "60\n"    // middle (zero) note
+        "69\n"    // reference note
+        "432.0\n" // reference frequency
+        "1\n";    // formal octave degree
+
+    // Parsing from a string retunes the reference pitch (A4 -> 432 Hz).
+    TuningMap tm;
+    assert(tm.loadKeyMapFromString(kbm) == 0);
+    assert(std::fabs(tm.noteToPitch(69) - 432.0) < 1e-6);
+
+    // Through the Synthesizer entry point used by the wasm bridge.
+    Synthesizer synth;
+    synth.setSampleRate(44100);
+    assert(synth.loadTuningKeymapFromString(kbm) == 0);
+    assert(std::fabs(synth._voiceAllocationUnit->noteToPitch(69) - 432.0) < 1e-6);
+
+    // An empty string resets to the default keymap (A4 = 440 Hz).
+    assert(synth.loadTuningKeymapFromString("") == 0);
+    assert(std::fabs(synth._voiceAllocationUnit->noteToPitch(69) - 440.0) < 1e-6);
+
+    // Malformed data is rejected and leaves the previous keymap intact.
+    assert(tm.loadKeyMapFromString("not a keymap") != 0);
+}
+
 TEST(testTonicSplitOverlay) {
     auto sclPath = writeTempFile(".scl",
                                  "! ji.scl\n"
@@ -550,6 +580,7 @@ int main(int argc, const char * argv[])  {
     RUN_TEST(testHzInputGateAndPitch);
     RUN_TEST(testTuningMapSetRoot);
     RUN_TEST(testLoadScaleFromString);
+    RUN_TEST(testLoadKeyMapFromString);
     RUN_TEST(testTonicSplitOverlay);
     RUN_TEST(testTuningSplitPersistedPerPreset);
     RUN_TEST(testTuningSplitAppliedOnPresetRecall);

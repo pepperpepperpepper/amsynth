@@ -46,6 +46,7 @@ public:
 	int	loadScale		(const std::string & filename);
 	int	loadScaleFromString	(const std::string & scaleData);
 	int	loadKeyMap		(const std::string & filename);
+	int	loadKeyMapFromString	(const std::string & keyMapData);
 	// All return 0 on success
 
 	void	defaultScale		();
@@ -68,6 +69,7 @@ public:
 
 private:
 	int	loadScaleStream		(std::istream & stream, const std::string & name);
+	int	loadKeyMapStream	(std::istream & stream, const std::string & name);
 
 	std::string scaleFile;
 	std::string keyMapFile;

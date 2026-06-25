@@ -330,6 +330,15 @@ int Synthesizer::loadTuningKeymap(const char *filename)
 	return 0;
 }
 
+int Synthesizer::loadTuningKeymapFromString(const char *keyMapData)
+{
+	if (keyMapData && strlen(keyMapData))
+		return _voiceAllocationUnit->loadKeyMapFromString(keyMapData);
+
+	_voiceAllocationUnit->tuningMap.defaultKeyMap();
+	return 0;
+}
+
 int Synthesizer::loadTuningScale(const char *filename)
 {
 	if (filename && strlen(filename))

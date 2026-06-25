@@ -507,3 +507,9 @@ VoiceAllocationUnit::loadKeyMap		(const std::string & kbmFileName)
 {
 	return tuningMap.loadKeyMap(kbmFileName);
 }
+
+int
+VoiceAllocationUnit::loadKeyMapFromString	(const std::string & keyMapData)
+{
+	return tuningMap.loadKeyMapFromString(keyMapData);
+}

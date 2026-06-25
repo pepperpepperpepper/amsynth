@@ -82,6 +82,7 @@ public:
 	int		loadScale		(const std::string & sclFileName);
 	int		loadScaleFromString	(const std::string & scaleData);
 	int		loadKeyMap		(const std::string & kbmFileName);
+	int		loadKeyMapFromString	(const std::string & keyMapData);
 
 // private:
 

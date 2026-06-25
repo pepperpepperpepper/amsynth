@@ -217,6 +217,19 @@ int
 TuningMap::loadKeyMap		(const std::string & filename)
 {
 	std::ifstream file(filename.c_str());
+	return loadKeyMapStream(file, filename);
+}
+
+int
+TuningMap::loadKeyMapFromString	(const std::string & keyMapData)
+{
+	std::istringstream stream(keyMapData);
+	return loadKeyMapStream(stream, "<memory>");
+}
+
+int
+TuningMap::loadKeyMapStream	(std::istream & file, const std::string & name)
+{
 	std::string line;
 
 	int mapSize = -1;
@@ -324,7 +337,7 @@ TuningMap::loadKeyMap		(const std::string & filename)
 	{ // special case for "automatic" linear mapping
 		if (!newMapping.empty())
 			return -1;
-		keyMapFile = filename;
+		keyMapFile = name;
 		zeroNote = newZeroNote;
 		refNote = newRefNote;
 		refPitch = newRefPitch;
@@ -363,7 +376,7 @@ TuningMap::loadKeyMap		(const std::string & filename)
 		activateRange(0, 127);
 
 	mapping = newMapping;
-	keyMapFile = filename;
+	keyMapFile = name;
 	updateBasePitch();
 	return 0;
 }

@@ -98,6 +98,7 @@ public:
 	void setMidiChannel(unsigned char);
 
 	int loadTuningKeymap(const char *filename);
+	int loadTuningKeymapFromString(const char *keyMapData);
 	int loadTuningScale(const char *filename);
 	int loadTuningScaleFromString(const char *scaleData);
 
