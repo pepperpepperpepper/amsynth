@@ -60,8 +60,9 @@ class AmsynthProcessor extends AudioWorkletProcessor {
       let end = ptr; while (u8[end]) end++;
       return dec.decode(u8.subarray(ptr, end));
     };
+    this.nparams = ex.synth_param_count();
     const params = [];
-    for (let i = 0; i < ex.synth_param_count(); i++) {
+    for (let i = 0; i < this.nparams; i++) {
       params.push({
         index: i, name: readStr(ex.synth_param_name(i)),
         min: ex.synth_param_min(i), max: ex.synth_param_max(i),
@@ -85,6 +86,22 @@ class AmsynthProcessor extends AudioWorkletProcessor {
       if (name && name !== "null") ccForName[name] = cc;
     }
     return ccForName;
+  }
+
+  // Current value of every parameter, for refreshing the UI sliders.
+  paramValues() {
+    const v = [];
+    for (let i = 0; i < this.nparams; i++) v.push(this.ex.synth_get_param(i));
+    return v;
+  }
+
+  // The loaded bank's 128 preset names.
+  presetNames() {
+    const len = this.ex.synth_get_preset_names();
+    const text = new TextDecoder().decode(new Uint8Array(this.mem.buffer, this.ex.synth_text_buffer(), len));
+    const arr = text.split("\n");
+    if (arr.length && arr[arr.length - 1] === "") arr.pop();
+    return arr;
   }
 
   onMessage(m) {
@@ -115,6 +132,23 @@ class AmsynthProcessor extends AudioWorkletProcessor {
         this.port.postMessage({ type: "controllers", text });
         break;
       }
+      case "loadBank": {
+        // Banks can exceed the shared text buffer, so use a malloc'd buffer.
+        const bytes = new TextEncoder().encode(m.text || "");
+        const ptr = ex.malloc(bytes.length + 1);
+        const mem = new Uint8Array(this.mem.buffer);
+        mem.set(bytes, ptr);
+        mem[ptr + bytes.length] = 0;
+        const ok = ex.synth_load_bank(ptr) === 0;
+        ex.free(ptr);
+        this.port.postMessage({ type: "bankLoaded", ok, name: m.name || "",
+          names: this.presetNames(), preset: ex.synth_get_preset(), values: this.paramValues() });
+        break;
+      }
+      case "setPreset":
+        ex.synth_set_preset(m.preset);
+        this.port.postMessage({ type: "presetChanged", preset: ex.synth_get_preset(), values: this.paramValues() });
+        break;
     }
   }
 

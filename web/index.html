@@ -48,6 +48,16 @@
 
 <main>
   <section>
+    <h2>Presets</h2>
+    <div class="tonic">
+      <label>Bank file <input type="file" id="bankFile"></label>
+      <label>Preset <select id="presetSel"></select></label>
+      <span id="bankStatus" class="hint" style="margin:0">default preset</span>
+    </div>
+    <div class="hint">Load an amsynth <code>.bank</code> file, then pick a preset — the parameter sliders update to match.</div>
+  </section>
+
+  <section>
     <h2>Keyboard</h2>
     <div id="piano"></div>
     <div class="hint">Click/tap the keys, or use your computer keyboard: <b>z s x d c v g b h n j m</b> (lower) and <b>q 2 w 3 e r 5 t 6 y 7 u</b> (upper). <b>x</b>/<b>c</b> shift octave.</div>
@@ -116,6 +126,8 @@ async function start() {
     else if (d.type === "controllersLoaded") $("#ctrlStatus").textContent = d.ok ? `loaded ${d.name || "mappings"}` : "load failed";
     else if (d.type === "ccMap") applyCcMap(d.ccForName);
     else if (d.type === "controllers") downloadText("amsynth-controllers.txt", d.text);
+    else if (d.type === "bankLoaded") onBankLoaded(d);
+    else if (d.type === "presetChanged") { $("#presetSel").value = d.preset; setSliderValues(d.values); }
   };
   await ctx.resume();
   $("#panic").disabled = false;
@@ -132,7 +144,8 @@ function onReady(params, ccForName) {
 }
 
 // ---- parameter sliders --------------------------------------------------
-const ccBadges = {}; // paramName -> badge span
+const ccBadges = {};      // paramName -> badge span
+const paramControls = []; // index -> { input, val }
 
 function buildParams(params, ccForName) {
   const wrap = $("#params");
@@ -154,6 +167,7 @@ function buildParams(params, ccForName) {
     r.type = "range"; r.min = p.min; r.max = p.max; r.value = p.value;
     r.step = (p.max - p.min) / 1000 || 0.001;
     r.oninput = () => { const v = parseFloat(r.value); val.textContent = fmt(v); send({ type: "param", index: p.index, value: v }); };
+    paramControls[p.index] = { input: r, val };
     div.append(lab, r);
     wrap.append(div);
   }
@@ -164,6 +178,26 @@ function applyCcMap(ccForName) {
     const cc = ccForName ? ccForName[name] : undefined;
     ccBadges[name].textContent = (cc === undefined || cc === null) ? "" : `CC${cc}`;
   }
+}
+function setSliderValues(values) {
+  if (!values) return;
+  for (let i = 0; i < values.length; i++) {
+    const c = paramControls[i];
+    if (c) { c.input.value = values[i]; c.val.textContent = fmt(values[i]); }
+  }
+}
+function onBankLoaded(d) {
+  $("#bankStatus").textContent = d.ok ? `loaded ${d.name || "bank"}` : "load failed";
+  if (!d.ok) return;
+  const sel = $("#presetSel");
+  sel.innerHTML = "";
+  d.names.forEach((name, i) => {
+    const o = document.createElement("option");
+    o.value = i; o.textContent = `${i}: ${name}`;
+    sel.append(o);
+  });
+  sel.value = d.preset;
+  setSliderValues(d.values);
 }
 const fmt = (v) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(2));
 function downloadText(filename, text) {
@@ -312,6 +346,13 @@ $("#ctrlFile").onchange = async (e) => {
 };
 $("#ctrlExport").onclick = () => send({ type: "getControllers" });
 $("#ctrlReset").onclick = () => { send({ type: "loadControllers", text: "", name: "defaults" }); $("#ctrlStatus").textContent = "built-in defaults"; };
+
+// ---- preset banks -------------------------------------------------------
+$("#bankFile").onchange = async (e) => {
+  const f = e.target.files[0];
+  if (f) send({ type: "loadBank", text: await f.text(), name: f.name });
+};
+$("#presetSel").onchange = (e) => send({ type: "setPreset", preset: +e.target.value });
 
 buildPiano();
 </script>

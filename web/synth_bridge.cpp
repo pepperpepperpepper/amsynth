@@ -17,6 +17,7 @@
 
 #include "core/synth/Synthesizer.h"
 #include "core/synth/VoiceAllocationUnit.h"
+#include "core/synth/PresetController.h"
 #include "core/controls.h"
 #include "core/midi.h"
 #include "core/types.h"
@@ -245,6 +246,43 @@ int synth_get_controllers()
 	gTextBuf[n] = '\0';
 	return n;
 }
+
+// --- Preset banks -----------------------------------------------------------
+
+// Loads an amsynth .bank from a NUL-terminated buffer. Banks can exceed the
+// shared text buffer, so JS passes a malloc'd pointer here. Returns 0 on
+// success, and selects the bank's first preset.
+EMSCRIPTEN_KEEPALIVE
+int synth_load_bank(const char *data)
+{
+	if (!gSynth || !data)
+		return -1;
+	return gSynth->loadBankFromString(data) ? 0 : -1;
+}
+
+// Writes the 128 preset names (newline-separated) into the shared text buffer
+// and returns the length.
+EMSCRIPTEN_KEEPALIVE
+int synth_get_preset_names()
+{
+	if (!gSynth)
+		return 0;
+	std::string s;
+	PresetController *pc = gSynth->getPresetController();
+	for (int i = 0; i < PresetController::kNumPresets; i++) {
+		s += pc->getPreset(i).getName();
+		s += '\n';
+	}
+	int n = (int)s.size();
+	if (n > kTextBufSize - 1)
+		n = kTextBufSize - 1;
+	s.copy(gTextBuf, n);
+	gTextBuf[n] = '\0';
+	return n;
+}
+
+EMSCRIPTEN_KEEPALIVE void synth_set_preset(int i) { if (gSynth) gSynth->setPresetNumber(i); }
+EMSCRIPTEN_KEEPALIVE int  synth_get_preset()      { return gSynth ? gSynth->getPresetNumber() : 0; }
 
 // --- Tonic-split demo controls (the feature wired up earlier) ---------------
 

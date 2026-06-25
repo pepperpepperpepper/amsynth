@@ -23,6 +23,7 @@ at the DSP level.
 | `test-scale.mjs`       | headless check of the .scl/.kbm loaders + tonic-split re-root |
 | `test-midi.mjs`        | headless check of the raw-MIDI forwarder (notes + sustain CC) |
 | `test-controllers.mjs` | headless check of the CC->parameter map loading/export |
+| `test-bank.mjs`        | headless check of preset-bank loading + preset selection |
 
 ## Build
 
@@ -60,6 +61,7 @@ node web/test-worklet.mjs   # worklet path: same, through amsynth-processor.js
 node web/test-scale.mjs     # loads an .scl/.kbm, re-roots via the control zone, verifies pitch
 node web/test-midi.mjs      # raw-MIDI path: note-on makes sound, sustain CC holds/releases
 node web/test-controllers.mjs  # CC->parameter map: defaults, custom load, export, reset
+node web/test-bank.mjs      # preset bank: load (incl. >64 KB), names, preset selection
 ```
 
 ## How it fits together
@@ -78,8 +80,10 @@ the module instantiable inside an AudioWorklet with only a few WASI stubs.
 
 ## Known limitations / next steps
 
-- **No preset banks.** Only the built-in default preset. Could be added by
-  bundling a `.bank` file and feeding it to `Synthesizer::loadBank` via MEMFS.
+- **Preset banks** load from an amsynth `.bank` file via the "Presets" section
+  (`Synthesizer::loadBankFromString` over a malloc'd buffer, since banks can
+  exceed the shared text buffer); pick a preset and the sliders update. No bank
+  is bundled by default — load one of `data/banks/*.bank`.
 - **Generic sliders**, not the skinned panel. The skin PNGs + `layout.ini` in
   `data/skins/default` could be reused on a canvas for a faithful UI.
 - **Web MIDI input** is supported: connect a hardware controller and the page
