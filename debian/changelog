@@ -1,3 +1,11 @@
+amsynth (1.14.0-1) unstable; urgency=medium
+
+  * AMsynth enhanced 1.14.0 (independent fork).
+  * Headless --without-gui builds are now lean (no JUCE/X), suitable for
+    Raspberry Pi packaging.
+
+ -- Sandro <sandro@blonderon.com>  Thu, 25 Jun 2026 15:17:26 +0000
+
 amsynth (1.13.4-1) unstable; urgency=medium
 
   * New upstream version 1.13.4
