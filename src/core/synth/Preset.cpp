@@ -175,18 +175,16 @@ Preset::fromString(const std::string &str)
 	if (buffer == "<preset>") {
 		stream >> buffer;
 		
-		//get the preset's name
-		stream >> buffer;
+		//get the preset's name. Read the remainder of the
+		//"<preset> <name> ..." line so an empty name doesn't swallow the
+		//following <parameter> line (a token scan would).
 		std::string presetName;
-		presetName += buffer;
-		stream >> buffer;
-		while (buffer != "<parameter>") {
-			presetName += " ";
-			presetName += buffer;
-			stream >> buffer;
-		}
-		setName(presetName); 
-		
+		std::getline(stream, presetName); // everything after "<name>" on this line
+		if (!presetName.empty() && presetName[0] == ' ')
+			presetName.erase(0, 1);
+		setName(presetName);
+		stream >> buffer; // first token of the next line
+
 		//get the parameters
 		while (buffer == "<parameter>") {
 			std::string name;
