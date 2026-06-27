@@ -190,6 +190,20 @@ class AmsynthProcessor extends AudioWorkletProcessor {
         ex.synth_set_preset(m.preset);
         this.port.postMessage({ type: "presetChanged", preset: ex.synth_get_preset(), values: this.paramValues() });
         break;
+      case "getState":
+        this.port.postMessage({ type: "state", text: this.readTextBuf(ex.synth_get_state()) });
+        break;
+      case "loadState": {
+        const bytes = utf8Encode(m.text || "");
+        const ptr = ex.synth_text_buffer();
+        const cap = ex.synth_text_buffer_size();
+        const n = Math.min(bytes.length, cap - 1);
+        new Uint8Array(this.mem.buffer, ptr, n).set(bytes.subarray(0, n));
+        const ok = ex.synth_set_state(n) === 0;
+        // State restore touches every parameter, so refresh the whole UI.
+        this.port.postMessage({ type: "stateLoaded", ok, name: m.name || "", values: this.paramValues() });
+        break;
+      }
     }
   }
 

@@ -25,6 +25,8 @@
 "_synth_get_preset_names",
 "_synth_set_preset",
 "_synth_get_preset",
+"_synth_get_state",
+"_synth_set_state",
 "_synth_set_tonic_split",
 "_synth_set_tonic_split_point",
 "_synth_set_tonic_root",

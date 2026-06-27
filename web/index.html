@@ -54,7 +54,12 @@
       <label>Preset <select id="presetSel"></select></label>
       <span id="bankStatus" class="hint" style="margin:0">default preset</span>
     </div>
-    <div class="hint">Load an amsynth <code>.bank</code> file, then pick a preset — the parameter sliders update to match.</div>
+    <div class="tonic" style="margin-top:10px">
+      <button class="secondary" type="button" id="stateSave">Save sound…</button>
+      <label>Load sound <input type="file" id="stateFile"></label>
+      <span id="stateStatus" class="hint" style="margin:0">edits not saved</span>
+    </div>
+    <div class="hint">Load an amsynth <code>.bank</code> file, then pick a preset — the parameter sliders update to match. <b>Save sound</b> exports the current (edited) sound — parameters plus tuning — as a portable state file; <b>Load sound</b> restores one.</div>
   </section>
 
   <section>
@@ -129,6 +134,8 @@ async function start() {
     else if (d.type === "controllers") downloadText("amsynth-controllers.txt", d.text);
     else if (d.type === "bankLoaded") onBankLoaded(d);
     else if (d.type === "presetChanged") { $("#presetSel").value = d.preset; setSliderValues(d.values); }
+    else if (d.type === "state") { downloadText("amsynth-sound.amSynthState", d.text); $("#stateStatus").textContent = "sound saved"; }
+    else if (d.type === "stateLoaded") { $("#stateStatus").textContent = d.ok ? `loaded ${d.name || "sound"}` : "load failed"; if (d.ok) setSliderValues(d.values); }
   };
   await ctx.resume();
   $("#panic").disabled = false;
@@ -354,6 +361,11 @@ $("#bankFile").onchange = async (e) => {
   if (f) send({ type: "loadBank", text: await f.text(), name: f.name });
 };
 $("#presetSel").onchange = (e) => send({ type: "setPreset", preset: +e.target.value });
+$("#stateSave").onclick = () => send({ type: "getState" });
+$("#stateFile").onchange = async (e) => {
+  const f = e.target.files[0];
+  if (f) send({ type: "loadState", text: await f.text(), name: f.name });
+};
 
 buildPiano();
 </script>

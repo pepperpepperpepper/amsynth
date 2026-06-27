@@ -284,6 +284,36 @@ int synth_get_preset_names()
 EMSCRIPTEN_KEEPALIVE void synth_set_preset(int i) { if (gSynth) gSynth->setPresetNumber(i); }
 EMSCRIPTEN_KEEPALIVE int  synth_get_preset()      { return gSynth ? gSynth->getPresetNumber() : 0; }
 
+// --- Preset state (a single editable sound) ---------------------------------
+// Same serialization the LV2/VST plugins use for their state: the current
+// preset's parameters plus the engine properties (tuning, pitch-bend range,
+// ...). Small enough to live in the shared text buffer.
+
+// Writes the current state into the shared text buffer and returns its length.
+EMSCRIPTEN_KEEPALIVE
+int synth_get_state()
+{
+	if (!gSynth)
+		return 0;
+	std::string s = gSynth->getState();
+	int n = (int)s.size();
+	if (n > kTextBufSize - 1)
+		n = kTextBufSize - 1;
+	s.copy(gTextBuf, n);
+	gTextBuf[n] = '\0';
+	return n;
+}
+
+// Restores state from the first `len` bytes of the shared text buffer.
+EMSCRIPTEN_KEEPALIVE
+int synth_set_state(int len)
+{
+	if (!gSynth || len <= 0 || len >= kTextBufSize)
+		return -1;
+	gSynth->setState(std::string(gTextBuf, len));
+	return 0;
+}
+
 // --- Tonic-split demo controls (the feature wired up earlier) ---------------
 
 EMSCRIPTEN_KEEPALIVE

@@ -24,6 +24,7 @@ at the DSP level.
 | `test-midi.mjs`        | headless check of the raw-MIDI forwarder (notes + sustain CC) |
 | `test-controllers.mjs` | headless check of the CC->parameter map loading/export |
 | `test-bank.mjs`        | headless check of preset-bank loading + preset selection |
+| `test-state.mjs`       | headless check of preset-state (sound) export/import round-trip |
 | `test-browser.mjs`     | real-browser smoke test (Playwright): page boots to "running" |
 
 ## Build
@@ -63,6 +64,7 @@ node web/test-scale.mjs     # loads an .scl/.kbm, re-roots via the control zone,
 node web/test-midi.mjs      # raw-MIDI path: note-on makes sound, sustain CC holds/releases
 node web/test-controllers.mjs  # CC->parameter map: defaults, custom load, export, reset
 node web/test-bank.mjs      # preset bank: load (incl. >64 KB), names, preset selection
+node web/test-state.mjs     # preset state: edit a sound, export, restore, verify round-trip
 ```
 
 The Node tests run `amsynth-processor.js` in a Node global scope, which — unlike
@@ -107,6 +109,12 @@ the module instantiable inside an AudioWorklet with only a few WASI stubs.
   the engine's built-in defaults (CC7 volume, CC74 cutoff, mod-wheel, ...) apply
   otherwise. Sliders are tagged with their CC, and "Export current" downloads an
   editable template.
+- **Save / load a sound.** The "Presets" section's *Save sound* button exports
+  the current (edited) sound — every parameter plus the tuning/properties — as a
+  portable state file (the same serialization the LV2/VST plugins use), and
+  *Load sound* restores one. Driven by `Synthesizer::getState`/`setState` via the
+  shared text buffer. (This also surfaced and fixed a `Preset::fromString` bug
+  where an empty preset name swallowed the first parameter on import.)
 - **Scala scales (.scl) and keymaps (.kbm)** load from a file (or the built-in
   5-limit JI example via the page's "Load 5-limit JI" button). With the default
   12-TET scale the tonic-split re-root is inaudible by design; load a non-12-TET
