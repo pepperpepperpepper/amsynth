@@ -45,6 +45,6 @@ Description: |
 AuthorName: amsynth
 AutoUpdateMode: None
 UpdateCheckMode: None
-CurrentVersion: 1.14.0
-CurrentVersionCode: 11400
+CurrentVersion: "5.0"
+CurrentVersionCode: 50000
 Builds: []

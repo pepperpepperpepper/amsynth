@@ -20,7 +20,7 @@ dnl
 
 AC_COPYRIGHT([Copyright (C) 2001 Nick Dowell])
 
-AC_INIT([amsynth], [1.14.0],
+AC_INIT([amsynth], [5.0],
         [https://github.com/pepperpepperpepper/amsynth/issues],
         [amsynth],
         [https://github.com/pepperpepperpepper/amsynth])
