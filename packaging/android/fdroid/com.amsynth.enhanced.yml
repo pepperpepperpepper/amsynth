@@ -1,0 +1,50 @@
+# F-Droid metadata for AMsynth enhanced (Oops WTF F-Droid repo).
+#
+# On the first release, copy this file to
+#   /mnt/subtitled/fdroid/metadata/com.amsynth.enhanced.yml
+# Subsequent releases do NOT need to re-copy — publish-live.sh rewrites
+# CurrentVersion / CurrentVersionCode automatically from the APK manifest.
+#
+# Publish flow (APK comes from packaging/android/build-on-moviecomp.sh):
+#   /mnt/subtitled/fdroid/publish-live.sh --dry-run \
+#       ~/amsynth/android/app/build/outputs/apk/release/app-release-unsigned.apk \
+#       com.amsynth.enhanced
+#   /mnt/subtitled/fdroid/publish-live.sh \
+#       ~/amsynth/android/app/build/outputs/apk/release/app-release-unsigned.apk \
+#       com.amsynth.enhanced
+#
+# Signing is handled centrally by the F-Droid repo's keystore at publish time;
+# the app does NOT ship its own keystore.
+
+Categories:
+  - Multimedia
+License: GPL-2.0-or-later
+WebSite: https://github.com/pepperpepperpepper/amsynth
+SourceCode: https://github.com/pepperpepperpepper/amsynth
+IssueTracker: https://github.com/pepperpepperpepper/amsynth/issues
+Name: AMsynth enhanced
+Summary: A classic two-oscillator analog-modelling synthesizer
+Description: |
+  AMsynth enhanced is an analog-modelling software synthesizer with the classic
+  subtractive topology: two audio oscillators (sine, saw, square/pulse with
+  adjustable width, and noise) feeding a resonant low-pass filter, with dedicated
+  ADSR envelopes for amplitude and filter, an LFO, distortion and reverb.
+
+  This is an independent, enhanced fork of amsynth. It shares the exact same
+  portable C++ DSP engine as the desktop and plugin builds, so it sounds
+  identical — only the audio output and user interface are native to Android.
+  Audio runs through Oboe for low latency; the engine renders on a dedicated
+  audio thread and is driven lock-free from the UI.
+
+  Features:
+
+  * The full amsynth synthesis engine, with every parameter exposed as a slider.
+  * A touch keyboard for playing directly on the device.
+  * Low-latency audio via Oboe (AAudio where available).
+
+AuthorName: amsynth
+AutoUpdateMode: None
+UpdateCheckMode: None
+CurrentVersion: 1.14.0
+CurrentVersionCode: 11400
+Builds: []

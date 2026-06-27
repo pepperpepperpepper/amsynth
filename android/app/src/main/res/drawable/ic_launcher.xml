@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simple self-contained launcher icon: an amber waveform on the panel-dark
+     background. In-APK (not a framework drawable) so aapt can resolve it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:fillColor="#2C3940"
+        android:pathData="M0,0 h108 v108 h-108 z" />
+
+    <!-- one cycle of a sine wave -->
+    <path
+        android:strokeColor="#E0A43B"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M14,54 C 25,22 36,22 47,54 C 58,86 69,86 80,54 C 86,38 90,38 94,54" />
+</vector>
