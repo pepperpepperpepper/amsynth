@@ -1,5 +1,9 @@
 # amsynth — Android app (NDK + Oboe)
 
+**Install:** available from the Oops WTF F-Droid repo — add
+`https://fdroid.uh-oh.wtf/repo` in an F-Droid client, or grab the APK directly:
+<https://fdroid.uh-oh.wtf/repo/com.amsynth.enhanced_11400.apk>.
+
 A native Android front-end for amsynth. The same platform-free DSP engine in
 `src/core/synth` that powers the desktop, plugin, and web builds is compiled with
 the **NDK** and driven by **[Oboe](https://github.com/google/oboe)** for
