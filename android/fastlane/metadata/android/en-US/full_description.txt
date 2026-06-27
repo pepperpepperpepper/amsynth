@@ -1,0 +1,22 @@
+AMsynth enhanced is an analog-modelling software synthesizer with the classic
+subtractive topology: two audio oscillators (sine, saw, square/pulse with
+adjustable width, and noise) feeding a resonant low-pass filter, with dedicated
+ADSR envelopes for amplitude and filter, an LFO, distortion and reverb.
+
+This is an independent, enhanced fork of amsynth. It shares the exact same
+portable C++ DSP engine as the desktop and plugin builds, so it sounds identical
+— only the audio output and user interface are native to Android. Audio runs
+through Oboe for low latency; the engine renders on a dedicated audio thread and
+is driven lock-free from the UI.
+
+Features in this release:
+- The full amsynth synthesis engine, with every parameter exposed as a slider.
+- A touch keyboard for playing directly on the device.
+- Low-latency audio via Oboe (AAudio where available).
+
+Planned: preset banks, save/load of edited sounds, Scala microtuning with the
+movable just-intonation tonic split, MIDI CC mapping, and hardware MIDI input —
+all already supported by the shared engine and the web preview.
+
+amsynth is free software, released under the GNU General Public License v2 or
+later.

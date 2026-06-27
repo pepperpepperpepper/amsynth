@@ -12,7 +12,7 @@
 *~
 ABOUT-NLS
 aclocal.m4
-amsynth
+/amsynth
 amsynth-tests
 amsynth-tests.log
 amsynth-tests.trs
@@ -73,3 +73,4 @@ packaging/raspberry-pi/out
 win/**/*.vcxproj.user
 win/**/x64/**
 xcuserdata
+/dist/

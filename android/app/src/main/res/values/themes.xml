@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- A plain platform theme; the actual UI is Compose MaterialTheme. -->
+    <style name="Theme.AmsynthEnhanced" parent="android:Theme.Material.NoActionBar" />
+</resources>
