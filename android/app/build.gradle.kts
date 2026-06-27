@@ -7,6 +7,10 @@ android {
     namespace = "com.amsynth.enhanced"
     compileSdk = 34
 
+    // Pin to an NDK that the build host has installed (AGP's bundled default
+    // may not be present). Override with -PndkVersion= if needed.
+    ndkVersion = "27.2.12479018"
+
     defaultConfig {
         applicationId = "com.amsynth.enhanced"
         minSdk = 24
