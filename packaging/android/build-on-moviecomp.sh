@@ -54,7 +54,9 @@ echo ">> building ref '$REF' on $TARGET:$MOVIECOMP_PORT (clone: $REMOTE_DIR, url
 "${SSH[@]}" "$TARGET" bash -s -- \
 	"$REF" "$CLONE_URL" "$REMOTE_DIR" "$GRADLE_VERSION" "$FDROID_DIR" <<'REMOTE'
 set -euo pipefail
-REF="$1"; CLONE_URL="$2"; REMOTE_DIR="$3"; GRADLE_VERSION="$4"; FDROID_DIR="$5"
+# $5 (FDROID_DIR) may be empty; an empty trailing ssh arg gets dropped on
+# re-parse, so default it rather than tripping `set -u`.
+REF="$1"; CLONE_URL="$2"; REMOTE_DIR="$3"; GRADLE_VERSION="$4"; FDROID_DIR="${5:-}"
 
 # SDK location (login shell sets ANDROID_HOME on this host).
 : "${ANDROID_HOME:=$HOME/android-sdk}"
