@@ -1,14 +1,10 @@
 name: Linux
 
 on:
-  push:
-    paths-ignore:
-      - '.github/workflows/mac.yml'
-      - '.github/workflows/windows.yml'
-      - '.gitignore'
-      - 'mac/**'
-      - 'src/plugins/au/**'
-      - 'win/**'
+  # Auto-runs disabled on this fork: this inherited upstream CI fails here (no
+  # upstream secrets) and every push spammed the owner with "Run failed" mail.
+  # Manual-only now; run tests locally (make check). Re-add push: to restore.
+  workflow_dispatch:
 
 jobs:
   build:
