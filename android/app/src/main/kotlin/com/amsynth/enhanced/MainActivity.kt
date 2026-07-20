@@ -10,8 +10,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -51,6 +53,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -89,7 +92,7 @@ private fun bankDisplayName(file: String): String = when {
         .replace("PatriksBank", "Patrik's Bank ")
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
     val context = LocalContext.current
@@ -112,6 +115,12 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
     var sheet by remember { mutableStateOf(Sheet.NONE) }
     var showMenu by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
+
+    // Console (full panel, no piano) is the default; Play shows the piano with a
+    // pinned "mini-patch" of knobs. Pin mode: tap knobs in the console to pin.
+    var playMode by remember { mutableStateOf(false) }
+    var pinMode by remember { mutableStateOf(false) }
+    val pinned = remember { mutableStateListOf(11, 9) } // Cutoff, Resonance by default
 
     fun refreshFrom(vals: FloatArray) {
         vals.forEachIndexed { i, v -> if (i < values.size) values[i].floatValue = v }
@@ -201,6 +210,21 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                if (playMode) {
+                    Text(
+                        "Console", color = Color(0xFFE0A43B), fontSize = 14.sp,
+                        modifier = Modifier.clickable { playMode = false }.padding(horizontal = 8.dp, vertical = 3.dp),
+                    )
+                } else {
+                    Text(
+                        "Pin", color = if (pinMode) Color(0xFFFFD27A) else Color(0xFF6E6145), fontSize = 14.sp,
+                        modifier = Modifier.clickable { pinMode = !pinMode }.padding(horizontal = 8.dp, vertical = 3.dp),
+                    )
+                    Text(
+                        "Play", color = Color(0xFFE0A43B), fontSize = 14.sp,
+                        modifier = Modifier.clickable { pinMode = false; playMode = true }.padding(horizontal = 8.dp, vertical = 3.dp),
+                    )
+                }
                 Text(
                     "Banks", color = Color(0xFFE0A43B), fontSize = 14.sp,
                     modifier = Modifier.clickable { sheet = Sheet.BANKS }.padding(horizontal = 8.dp, vertical = 3.dp),
@@ -231,61 +255,71 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                 }
             }
 
-            // The skin panel fills the full width (preserving its 3:2 shape, so
-            // the knobs are as large as possible); scroll vertically to reach
-            // the lower sections on short/landscape screens.
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-            ) {
+            if (!playMode) {
+                // Full console: the whole skin panel fit to the screen, no piano.
                 SkinView(
                     params = params,
                     values = values,
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    pinMode = pinMode,
+                    pinned = pinned,
+                    onTogglePin = { p -> if (p in pinned) pinned.remove(p) else pinned.add(p) },
+                )
+                if (pinMode) {
+                    Text(
+                        "Tap knobs to pin them to the Play view",
+                        color = Color(0xFFB9C6CC),
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(6.dp),
+                    )
+                }
+            } else {
+                // Play: the pinned mini-patch above a large keyboard.
+                if (pinned.isEmpty()) {
+                    Text(
+                        "No knobs pinned yet — go to Console, tap Pin, then tap knobs.",
+                        color = Color(0xFFB9C6CC),
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    )
+                } else {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        pinned.forEach { p -> MiniKnob(p, params, values) }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "OCT −", color = Color(0xFFE0A43B), fontSize = 14.sp,
+                        modifier = Modifier.clickable { if (octave.intValue > -3) octave.intValue-- }.padding(vertical = 6.dp, horizontal = 6.dp),
+                    )
+                    Text(
+                        "C${3 + octave.intValue}", color = Color(0xFFB9C6CC), fontSize = 13.sp,
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                    )
+                    Text(
+                        "OCT +", color = Color(0xFFE0A43B), fontSize = 14.sp,
+                        modifier = Modifier.clickable { if (octave.intValue < 3) octave.intValue++ }.padding(vertical = 6.dp, horizontal = 6.dp),
+                    )
+                }
+
+                Keyboard(
+                    baseNote = 48 + octave.intValue * 12,
                     modifier = Modifier
+                        .weight(1f)
                         .fillMaxWidth()
-                        .aspectRatio(Skin.BG_W.toFloat() / Skin.BG_H),
+                        .padding(horizontal = 10.dp)
+                        .padding(bottom = 6.dp),
                 )
             }
-
-            // Compact octave strip (Panic lives in the Menu as "All notes off").
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "OCT −",
-                    color = Color(0xFFE0A43B),
-                    fontSize = 14.sp,
-                    modifier = Modifier
-                        .clickable { if (octave.intValue > -3) octave.intValue-- }
-                        .padding(vertical = 6.dp, horizontal = 6.dp),
-                )
-                Text(
-                    "C${3 + octave.intValue}",
-                    color = Color(0xFFB9C6CC),
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                )
-                Text(
-                    "OCT +",
-                    color = Color(0xFFE0A43B),
-                    fontSize = 14.sp,
-                    modifier = Modifier
-                        .clickable { if (octave.intValue < 3) octave.intValue++ }
-                        .padding(vertical = 6.dp, horizontal = 6.dp),
-                )
-            }
-
-            Keyboard(
-                baseNote = 48 + octave.intValue * 12,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(112.dp)
-                    .padding(horizontal = 10.dp)
-                    .padding(bottom = 6.dp),
-            )
         }
 
         if (sheet != Sheet.NONE) {

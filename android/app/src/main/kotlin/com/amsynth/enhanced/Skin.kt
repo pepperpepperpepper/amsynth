@@ -4,16 +4,26 @@ import android.content.Context
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableFloatState
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -93,30 +103,68 @@ object Skin {
         Ctl(38, "knob", "knob_spot", 470, 340),         // filter_vel_sens
         Ctl(39, "knob", "knob_spot", 530, 340),         // amp_vel_sens
     )
+
+    val controlByParam: Map<Int, Ctl> = controls.associateBy { it.param }
+
+    // Short labels for the pinned mini-patch knobs (the skin bakes labels into
+    // the background, so standalone knobs need their own).
+    val label: Map<Int, String> = mapOf(
+        0 to "Amp Atk", 1 to "Amp Dec", 2 to "Amp Sus", 3 to "Amp Rel",
+        4 to "Osc1 Wave", 5 to "Flt Atk", 6 to "Flt Dec", 7 to "Flt Sus", 8 to "Flt Rel",
+        9 to "Resonance", 10 to "Env Amt", 11 to "Cutoff", 12 to "Detune", 13 to "Osc2 Wave",
+        14 to "Volume", 15 to "LFO Speed", 16 to "LFO Wave", 17 to "Octave", 18 to "Osc Mix",
+        19 to "LFO>Osc", 20 to "LFO>Flt", 21 to "LFO>Amp", 22 to "Ring Mod", 23 to "Osc1 PW",
+        24 to "Osc2 PW", 25 to "Rev Size", 26 to "Rev Damp", 27 to "Rev Wet", 28 to "Rev Width",
+        29 to "Drive", 30 to "Sync", 31 to "Portamento", 32 to "Keyboard", 33 to "Semitone",
+        34 to "Flt Type", 35 to "Slope", 36 to "LFO Osc", 37 to "Key Track", 38 to "Flt Vel",
+        39 to "Amp Vel", 40 to "Porta Mode",
+    )
 }
 
 private fun loadBitmap(ctx: Context, path: String): ImageBitmap =
     ctx.assets.open(path).use { BitmapFactory.decodeStream(it).asImageBitmap() }
 
+// Apply a value change from a vertical drag on a control, in normalized space
+// (matching the desktop's sensitivity). Returns the new raw value.
+private fun draggedValue(param: Int, p: AmsynthEngine.ParamInfo, curValue: Float, dy: Float, sens: Float): Float {
+    val curNorm = AmsynthEngine.normalize(param, curValue)
+    val newNorm = (curNorm - dy / sens).coerceIn(0f, 1f)
+    return AmsynthEngine.denormalize(param, newNorm)
+}
+
+// Cycle a discrete control (popup/button) to its next frame; returns new value.
+private fun cycledValue(param: Int, res: Skin.Res, curValue: Float): Float {
+    val cur = AmsynthEngine.normalize(param, curValue)
+    val curFrame = if (res.frames > 1) ((res.frames - 1) * cur).roundToInt().coerceIn(0, res.frames - 1) else 0
+    val nf = (curFrame + 1) % res.frames
+    val nn = if (res.frames > 1) nf.toFloat() / (res.frames - 1) else 0f
+    return AmsynthEngine.denormalize(param, nn)
+}
+
+private fun knobSens(p: AmsynthEngine.ParamInfo, scale: Float): Float =
+    ((if (p.step == 0f) 300f else min(40f * ((p.max - p.min) / p.step), 480f)) * scale).coerceAtLeast(1f)
+
 /**
- * The skinned control panel. Draws the background scaled to fit, then each
- * control's current film-strip frame. Knobs respond to a vertical drag (in
- * normalized space, matching the desktop's 300px / stepped sensitivity);
- * popups and buttons cycle to the next frame on tap. A control consumes its
- * touch from the initial press so it never fights an outer scroll.
+ * The full skinned control panel, fit whole into [modifier]'s box and centered.
+ * When [pinMode] is true, tapping a control toggles it in the pinned set via
+ * [onTogglePin] (and pinned controls are highlighted); otherwise knobs drag and
+ * selectors cycle. A control consumes its touch from the initial press.
  */
 @Composable
 fun SkinView(
     params: List<AmsynthEngine.ParamInfo>,
     values: List<MutableFloatState>,
     modifier: Modifier = Modifier,
+    pinMode: Boolean = false,
+    pinned: List<Int> = emptyList(),
+    onTogglePin: (Int) -> Unit = {},
 ) {
     val context = LocalContext.current
     val bg = remember { loadBitmap(context, "skin/background.png") }
     val bitmaps = remember { Skin.resources.mapValues { loadBitmap(context, "skin/" + it.value.file) } }
 
     Canvas(
-        modifier = modifier.pointerInput(Unit) {
+        modifier = modifier.pointerInput(pinMode) {
             awaitPointerEventScope {
                 while (true) {
                     val down = awaitFirstDown(requireUnconsumed = false)
@@ -132,11 +180,19 @@ fun SkinView(
                     if (hit == null) continue
                     down.consume()
                     val idx = hit.param
-                    if (hit.type == "knob") {
-                        val p = params[idx]
-                        val sensNative = if (p.step == 0f) 300f
-                        else min(40f * ((p.max - p.min) / p.step), 480f)
-                        val sens = (sensNative * scale).coerceAtLeast(1f)
+                    if (pinMode) {
+                        // Tap toggles pin (ignore small drags).
+                        var moved = false
+                        while (true) {
+                            val e = awaitPointerEvent()
+                            val ch = e.changes.firstOrNull { it.id == down.id } ?: break
+                            if (abs(ch.position.x - down.position.x) > 16f ||
+                                abs(ch.position.y - down.position.y) > 16f) moved = true
+                            if (!ch.pressed) { ch.consume(); if (!moved) onTogglePin(idx); break }
+                            ch.consume()
+                        }
+                    } else if (hit.type == "knob") {
+                        val sens = knobSens(params[idx], scale)
                         var prevY = down.position.y
                         while (true) {
                             val e = awaitPointerEvent()
@@ -144,9 +200,7 @@ fun SkinView(
                             if (!ch.pressed) { ch.consume(); break }
                             val dy = ch.position.y - prevY
                             prevY = ch.position.y
-                            val curNorm = AmsynthEngine.normalize(idx, values[idx].floatValue)
-                            val newNorm = (curNorm - dy / sens).coerceIn(0f, 1f)
-                            val nv = AmsynthEngine.denormalize(idx, newNorm)
+                            val nv = draggedValue(idx, params[idx], values[idx].floatValue, dy, sens)
                             values[idx].floatValue = nv
                             AmsynthEngine.nativeSetParameter(idx, nv)
                             ch.consume()
@@ -161,13 +215,7 @@ fun SkinView(
                             if (!ch.pressed) {
                                 ch.consume()
                                 if (!moved) {
-                                    val r = Skin.resources[hit.res]!!
-                                    val cur = AmsynthEngine.normalize(idx, values[idx].floatValue)
-                                    val curFrame = if (r.frames > 1)
-                                        ((r.frames - 1) * cur).roundToInt().coerceIn(0, r.frames - 1) else 0
-                                    val nf = (curFrame + 1) % r.frames
-                                    val nn = if (r.frames > 1) nf.toFloat() / (r.frames - 1) else 0f
-                                    val nv = AmsynthEngine.denormalize(idx, nn)
+                                    val nv = cycledValue(idx, Skin.resources[hit.res]!!, values[idx].floatValue)
                                     values[idx].floatValue = nv
                                     AmsynthEngine.nativeSetParameter(idx, nv)
                                 }
@@ -202,6 +250,101 @@ fun SkinView(
                 dstOffset = IntOffset((ox + c.x * scale).roundToInt(), (oy + c.y * scale).roundToInt()),
                 dstSize = IntSize((r.w * scale).roundToInt(), (r.h * scale).roundToInt()),
             )
+            if (c.param in pinned) {
+                // Highlight pinned controls so the selection is visible.
+                drawRect(
+                    color = Color(0x66E0A43B),
+                    topLeft = androidx.compose.ui.geometry.Offset(ox + c.x * scale, oy + c.y * scale),
+                    size = androidx.compose.ui.geometry.Size(r.w * scale, r.h * scale),
+                )
+            }
         }
+    }
+}
+
+/**
+ * A single pinned control drawn from the skin bitmaps, with its label — used in
+ * the play view's mini-patch dock. Drag to change a knob; tap to cycle a
+ * selector. Independent of [SkinView] so it can be placed next to the keyboard.
+ */
+@Composable
+fun MiniKnob(
+    param: Int,
+    params: List<AmsynthEngine.ParamInfo>,
+    values: List<MutableFloatState>,
+    modifier: Modifier = Modifier,
+) {
+    val ctl = Skin.controlByParam[param] ?: return
+    val res = Skin.resources[ctl.res] ?: return
+    val context = LocalContext.current
+    val bmp = remember(ctl.res) { loadBitmap(context, "skin/" + res.file) }
+
+    Column(
+        modifier = modifier.width(64.dp).padding(horizontal = 4.dp, vertical = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Canvas(
+            modifier = Modifier
+                .width(56.dp)
+                .aspectRatio(res.w.toFloat() / res.h)
+                .pointerInput(param) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            down.consume()
+                            if (ctl.type == "knob") {
+                                val sens = knobSens(params[param], 1f)
+                                var prevY = down.position.y
+                                while (true) {
+                                    val e = awaitPointerEvent()
+                                    val ch = e.changes.firstOrNull { it.id == down.id } ?: break
+                                    if (!ch.pressed) { ch.consume(); break }
+                                    val dy = ch.position.y - prevY
+                                    prevY = ch.position.y
+                                    val nv = draggedValue(param, params[param], values[param].floatValue, dy, sens)
+                                    values[param].floatValue = nv
+                                    AmsynthEngine.nativeSetParameter(param, nv)
+                                    ch.consume()
+                                }
+                            } else {
+                                var moved = false
+                                while (true) {
+                                    val e = awaitPointerEvent()
+                                    val ch = e.changes.firstOrNull { it.id == down.id } ?: break
+                                    if (abs(ch.position.x - down.position.x) > 12f ||
+                                        abs(ch.position.y - down.position.y) > 12f) moved = true
+                                    if (!ch.pressed) {
+                                        ch.consume()
+                                        if (!moved) {
+                                            val nv = cycledValue(param, res, values[param].floatValue)
+                                            values[param].floatValue = nv
+                                            AmsynthEngine.nativeSetParameter(param, nv)
+                                        }
+                                        break
+                                    }
+                                    ch.consume()
+                                }
+                            }
+                        }
+                    }
+                },
+        ) {
+            val norm = AmsynthEngine.normalize(param, values[param].floatValue).coerceIn(0f, 1f)
+            val frame = if (res.frames > 1) ((res.frames - 1) * norm).toInt().coerceIn(0, res.frames - 1) else 0
+            drawImage(
+                image = bmp,
+                srcOffset = IntOffset(0, frame * res.h),
+                srcSize = IntSize(res.w, res.h),
+                dstOffset = IntOffset(0, 0),
+                dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
+            )
+        }
+        Text(
+            Skin.label[param] ?: "",
+            color = Color(0xFFE7EEF0),
+            fontSize = 10.sp,
+            maxLines = 1,
+            textAlign = TextAlign.Center,
+        )
     }
 }

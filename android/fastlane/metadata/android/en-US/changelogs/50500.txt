@@ -1,3 +1,0 @@
-Slimmer header:
-- Replaced the tall top bar with a compact header (sound name + Banks /
-  Presets / Menu) to give the control panel and keyboard more room.
