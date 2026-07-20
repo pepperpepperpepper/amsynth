@@ -1,5 +1,6 @@
 package com.amsynth.enhanced
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -13,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.aspectRatio
@@ -27,6 +29,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -45,6 +48,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -91,17 +95,26 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class Sheet { NONE, PRESETS, BANKS, TUNING }
+private enum class Sheet { NONE, PRESETS, BANKS, TUNING, KNOBS }
 
-// One preset in the cross-bank searchable library.
+// One preset in the cross-bank searchable library. A user-saved preset carries
+// its full sound in [userState] (and bank == USER_BANK); factory presets don't.
+private const val USER_BANK = "user"
 private data class LibEntry(
     val bank: String,
     val bankName: String,
     val index: Int,
     val name: String,
     val cats: List<String>,
+    val userState: String? = null,
 )
 
+// A stable identity for the favorites set (survives across launches).
+private fun libId(e: LibEntry): String =
+    if (e.userState != null) "u${e.name}" else "f${e.bank}${e.index}"
+
+private const val FAV_CAT = "★ Favorites"
+private const val USER_CAT = "My Presets"
 private val CATEGORY_ORDER =
     listOf("All", "Bass", "Lead", "Pad", "Keys", "Strings", "Brass", "Pluck", "Perc", "FX", "Other")
 
@@ -140,6 +153,8 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
+    // Persisted UI state (last sound, pinned knobs, favourites, mode, tuning).
+    val prefs = remember { context.getSharedPreferences("amsynth", Context.MODE_PRIVATE) }
 
     // One value state per parameter; the skin reads these to pick knob frames.
     val values = remember { params.map { mutableFloatStateOf(it.default) } }
@@ -151,27 +166,65 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
     var currentBank by remember { mutableStateOf(banks.firstOrNull() ?: "amsynth_factory.bank") }
     var presets by remember { mutableStateOf<List<AmsynthEngine.Preset>>(emptyList()) }
     val currentPreset = remember { mutableIntStateOf(0) }
-    var soundName by remember { mutableStateOf("AMsynth enhanced") }
+    var soundName by remember { mutableStateOf(prefs.getString("soundName", null) ?: "AMsynth enhanced") }
     val octave = remember { mutableIntStateOf(0) }
 
     var sheet by remember { mutableStateOf(Sheet.NONE) }
     var showMenu by remember { mutableStateOf(false) }
+    var showSaveDialog by remember { mutableStateOf(false) }
+    var saveName by remember { mutableStateOf("") }
     val sheetState = rememberModalBottomSheetState()
 
-    // Console (full panel, no piano) is the default; Play shows the piano with a
-    // pinned "mini-patch" of knobs. Pin mode: tap knobs in the console to pin.
-    var playMode by remember { mutableStateOf(false) }
+    // Play (piano + pinned "mini-patch" of knobs) is the default startup screen;
+    // Console shows the full panel. Pin mode: tap knobs in the console to pin.
+    var playMode by remember { mutableStateOf(prefs.getBoolean("play", true)) }
     var pinMode by remember { mutableStateOf(false) }
-    val pinned = remember { mutableStateListOf(11, 9) } // Cutoff, Resonance by default
+    // Pinned knobs (persisted), default Cutoff + Resonance.
+    val pinned = remember {
+        mutableStateListOf<Int>().apply {
+            addAll((prefs.getString("pinned", "11,9") ?: "11,9").split(",").mapNotNull { it.trim().toIntOrNull() })
+            if (isEmpty()) addAll(listOf(11, 9))
+        }
+    }
 
     // Cross-bank searchable preset library.
     var library by remember { mutableStateOf<List<LibEntry>>(emptyList()) }
     var query by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("All") }
-    var currentTuning by remember { mutableStateOf("12-TET") }
+    var currentTuning by remember { mutableStateOf(prefs.getString("tuningName", null) ?: "12-TET") }
+    // The Scala zip entry backing the current tuning ("" = 12-TET), for restore.
+    var currentTuningEntry by remember { mutableStateOf(prefs.getString("tuningEntry", null) ?: "") }
     var scales by remember { mutableStateOf<List<ScalaLibrary.Scale>>(emptyList()) }
     var tuningQuery by remember { mutableStateOf("") }
-    val rootNote = remember { mutableIntStateOf(60) } // scale's 1/1 (tonic), default C4
+    val rootNote = remember { mutableIntStateOf(prefs.getInt("root", 60)) } // scale's 1/1 (tonic), default C4
+
+    // Favourited presets (ids from [libId]) and user-saved presets (name -> state).
+    val favorites = remember {
+        mutableStateListOf<String>().apply { addAll(prefs.getStringSet("favorites", emptySet()) ?: emptySet()) }
+    }
+    val userPresets = remember {
+        mutableStateListOf<Pair<String, String>>().apply {
+            (prefs.getStringSet("userPresets", emptySet()) ?: emptySet()).forEach {
+                val i = it.indexOf('')
+                if (i > 0) add(it.substring(0, i) to it.substring(i + 1))
+            }
+        }
+    }
+
+    // Persist all lightweight UI state (everything except the live sound, which
+    // needs the engine and is saved on pause). Cheap; called on each change.
+    fun persistPrefs() {
+        prefs.edit()
+            .putBoolean("play", playMode)
+            .putString("pinned", pinned.joinToString(","))
+            .putStringSet("favorites", favorites.toHashSet())
+            .putStringSet("userPresets", userPresets.map { it.first + "" + it.second }.toHashSet())
+            .putInt("root", rootNote.intValue)
+            .putString("tuningName", currentTuning)
+            .putString("tuningEntry", currentTuningEntry)
+            .putString("soundName", soundName)
+            .apply()
+    }
 
     fun refreshFrom(vals: FloatArray) {
         vals.forEachIndexed { i, v -> if (i < values.size) values[i].floatValue = v }
@@ -193,8 +246,15 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
         }
     }
 
-    // Select any preset from the library, loading its bank first if needed.
+    // Select any preset from the library, loading its bank first if needed. A
+    // user preset carries its full sound, so it's applied directly.
     fun selectFromLibrary(e: LibEntry) {
+        if (e.userState != null) {
+            AmsynthEngine.nativeApplyState(e.userState)?.let { refreshFrom(it) }
+            soundName = e.name
+            persistPrefs()
+            return
+        }
         if (e.bank != currentBank) {
             val bytes = context.assets.open("banks/${e.bank}").readBytes()
             if (AmsynthEngine.nativeLoadBank(bytes) > 0) {
@@ -205,7 +265,19 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
         selectPreset(e.index)
     }
 
-    LaunchedEffect(Unit) { runCatching { loadBank(currentBank) } }
+    // Startup: load the default bank (so the preset list exists) then restore the
+    // last sound saved on the previous run. nativeApplyState returns the parsed
+    // values whether or not the engine is up yet, so this converges with ON_RESUME.
+    LaunchedEffect(Unit) {
+        runCatching {
+            loadBank(currentBank)
+            val saved = prefs.getString("sound", null)
+            if (!saved.isNullOrBlank()) {
+                AmsynthEngine.nativeApplyState(saved)?.let { refreshFrom(it) }
+                soundName = prefs.getString("soundName", null) ?: soundName
+            }
+        }
+    }
 
     // Build the cross-bank library index once (off the main thread). Uses a
     // throwaway parser, so it never disturbs the live bank.
@@ -234,10 +306,25 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_RESUME -> {
+                    // The engine is destroyed on pause, so re-push the current sound
+                    // (the live parameter values) and tuning onto the fresh engine —
+                    // this both restores state across backgrounding and applies the
+                    // last-session sound restored at startup.
                     AmsynthEngine.nativeCreate(0)
-                    AmsynthEngine.nativeSelectPreset(currentPreset.intValue)
+                    values.forEachIndexed { i, v -> AmsynthEngine.nativeSetParameter(i, v.floatValue) }
+                    if (currentTuningEntry.isNotBlank()) {
+                        ScalaLibrary.read(context, currentTuningEntry)?.let { AmsynthEngine.nativeLoadScale(it) }
+                    } else {
+                        AmsynthEngine.nativeResetTuning()
+                    }
+                    AmsynthEngine.nativeSetTuningRoot(rootNote.intValue)
                 }
                 Lifecycle.Event.ON_PAUSE -> {
+                    // Save the live sound (needs the engine) plus the rest of the
+                    // UI state before tearing the engine down.
+                    val state = AmsynthEngine.nativeGetState()
+                    if (state.isNotBlank()) prefs.edit().putString("sound", state).apply()
+                    persistPrefs()
                     AmsynthEngine.nativeAllNotesOff()
                     AmsynthEngine.nativeDestroy()
                 }
@@ -278,6 +365,8 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
             if (txt != null && AmsynthEngine.nativeLoadScale(txt)) {
                 AmsynthEngine.nativeSetTuningRoot(rootNote.intValue)
                 currentTuning = uri.lastPathSegment?.substringAfterLast('/') ?: "Custom .scl"
+                currentTuningEntry = "" // external file — not restorable from the bundled archive
+                persistPrefs()
             }
         }
     }
@@ -317,8 +406,12 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                 )
                 if (playMode) {
                     Text(
+                        "Knobs", color = Color(0xFFE0A43B), fontSize = 14.sp,
+                        modifier = Modifier.clickable { sheet = Sheet.KNOBS }.padding(horizontal = 8.dp, vertical = 3.dp),
+                    )
+                    Text(
                         "Console", color = Color(0xFFE0A43B), fontSize = 14.sp,
-                        modifier = Modifier.clickable { playMode = false }.padding(horizontal = 8.dp, vertical = 3.dp),
+                        modifier = Modifier.clickable { playMode = false; persistPrefs() }.padding(horizontal = 8.dp, vertical = 3.dp),
                     )
                 } else {
                     Text(
@@ -327,7 +420,7 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                     )
                     Text(
                         "Play", color = Color(0xFFE0A43B), fontSize = 14.sp,
-                        modifier = Modifier.clickable { pinMode = false; playMode = true }.padding(horizontal = 8.dp, vertical = 3.dp),
+                        modifier = Modifier.clickable { pinMode = false; playMode = true; persistPrefs() }.padding(horizontal = 8.dp, vertical = 3.dp),
                     )
                 }
                 Text(
@@ -348,11 +441,16 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                         modifier = Modifier.clickable { showMenu = true }.padding(horizontal = 8.dp, vertical = 3.dp),
                     )
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                        DropdownMenuItem(text = { Text("Save sound…") }, onClick = {
+                        DropdownMenuItem(text = { Text("Save as preset…") }, onClick = {
+                            showMenu = false
+                            saveName = soundName
+                            showSaveDialog = true
+                        })
+                        DropdownMenuItem(text = { Text("Export sound…") }, onClick = {
                             showMenu = false
                             saveLauncher.launch("${soundName.ifBlank { "sound" }}.amSynthState")
                         })
-                        DropdownMenuItem(text = { Text("Load sound…") }, onClick = {
+                        DropdownMenuItem(text = { Text("Import sound…") }, onClick = {
                             showMenu = false
                             loadLauncher.launch(arrayOf("*/*"))
                         })
@@ -365,20 +463,40 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
             }
 
             if (!playMode) {
-                // Full console: fill the whole width (big knobs, edge to edge) and
-                // scroll vertically for the lower rows — uses all the screen real
-                // estate instead of letterboxing the panel in the middle.
-                Column(
-                    modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
-                ) {
-                    SkinView(
-                        params = params,
-                        values = values,
-                        modifier = Modifier.fillMaxWidth().aspectRatio(Skin.BG_W.toFloat() / Skin.BG_H),
-                        pinMode = pinMode,
-                        pinned = pinned,
-                        onTogglePin = { p -> if (p in pinned) pinned.remove(p) else pinned.add(p) },
-                    )
+                // Full console: fill the whole width (big knobs, edge to edge). The
+                // panel is 3:2, so on wide/short screens it's taller than the
+                // viewport → scroll for the lower rows. On squarer/tall screens it
+                // fits with room to spare → drop a small keyboard into that dead
+                // space so the full console is also playable.
+                val onTogglePin: (Int) -> Unit = { p ->
+                    if (p in pinned) pinned.remove(p) else pinned.add(p); persistPrefs()
+                }
+                BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    val panelH = maxWidth * (Skin.BG_H.toFloat() / Skin.BG_W)
+                    if (maxHeight - panelH >= 120.dp) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            SkinView(
+                                params = params,
+                                values = values,
+                                modifier = Modifier.fillMaxWidth().aspectRatio(Skin.BG_W.toFloat() / Skin.BG_H),
+                                pinMode = pinMode,
+                                pinned = pinned,
+                                onTogglePin = onTogglePin,
+                            )
+                            ConsoleKeys(octave, modifier = Modifier.weight(1f).fillMaxWidth())
+                        }
+                    } else {
+                        Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                            SkinView(
+                                params = params,
+                                values = values,
+                                modifier = Modifier.fillMaxWidth().aspectRatio(Skin.BG_W.toFloat() / Skin.BG_H),
+                                pinMode = pinMode,
+                                pinned = pinned,
+                                onTogglePin = onTogglePin,
+                            )
+                        }
+                    }
                 }
                 if (pinMode) {
                     Text(
@@ -401,11 +519,13 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                 ) {
                     if (pinned.isEmpty()) {
                         Text(
-                            "No knobs pinned yet — go to Console, tap Pin, then tap knobs.",
+                            "No knobs yet — tap “Knobs” to add some.",
                             color = Color(0xFFB9C6CC),
                             fontSize = 14.sp,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth().padding(24.dp),
+                            modifier = Modifier.fillMaxWidth()
+                                .clickable { sheet = Sheet.KNOBS }
+                                .padding(24.dp),
                         )
                     } else {
                         FlowRow(
@@ -499,7 +619,8 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                                         .clickable {
                                             AmsynthEngine.nativeResetTuning()
                                             AmsynthEngine.nativeSetTuningRoot(rootNote.intValue)
-                                            currentTuning = "12-TET"; closing()
+                                            currentTuning = "12-TET"; currentTuningEntry = ""
+                                            persistPrefs(); closing()
                                         }
                                         .padding(horizontal = 20.dp, vertical = 10.dp),
                                 )
@@ -528,6 +649,7 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                                                 if (rootNote.intValue > 0) {
                                                     rootNote.intValue--
                                                     AmsynthEngine.nativeSetTuningRoot(rootNote.intValue)
+                                                    persistPrefs()
                                                 }
                                             }
                                             .padding(horizontal = 14.dp, vertical = 2.dp),
@@ -543,6 +665,7 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                                                 if (rootNote.intValue < 127) {
                                                     rootNote.intValue++
                                                     AmsynthEngine.nativeSetTuningRoot(rootNote.intValue)
+                                                    persistPrefs()
                                                 }
                                             }
                                             .padding(horizontal = 14.dp, vertical = 2.dp),
@@ -554,6 +677,7 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                                     onSelect = { n ->
                                         rootNote.intValue = n
                                         AmsynthEngine.nativeSetTuningRoot(n)
+                                        persistPrefs()
                                     },
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -579,6 +703,8 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                                             if (txt != null && AmsynthEngine.nativeLoadScale(txt)) {
                                                 AmsynthEngine.nativeSetTuningRoot(rootNote.intValue)
                                                 currentTuning = s.display
+                                                currentTuningEntry = s.entry
+                                                persistPrefs()
                                             }
                                             closing()
                                         }
@@ -587,11 +713,63 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                             }
                         }
                     }
+                    Sheet.KNOBS -> {
+                        // Add/remove knobs from the Play mini-patch: tap to toggle.
+                        LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                            item {
+                                Text(
+                                    "Knobs on the Play screen — tap to add or remove",
+                                    color = Color(0xFF8AA0A8), fontSize = 12.sp,
+                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                                )
+                            }
+                            items(Skin.controls.map { it.param }.distinct()) { p ->
+                                val on = p in pinned
+                                Row(
+                                    modifier = Modifier.fillMaxWidth()
+                                        .clickable {
+                                            if (on) pinned.remove(p) else pinned.add(p)
+                                            persistPrefs()
+                                        }
+                                        .padding(horizontal = 20.dp, vertical = 11.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        if (on) "★" else "☆",
+                                        color = if (on) Color(0xFFE0A43B) else Color(0xFF6E6145),
+                                        fontSize = 18.sp,
+                                        modifier = Modifier.padding(end = 14.dp),
+                                    )
+                                    Text(
+                                        Skin.label[p] ?: params.getOrNull(p)?.name ?: "Param $p",
+                                        color = if (on) Color(0xFFE0A43B) else Color(0xFFE7EEF0),
+                                        fontSize = 16.sp,
+                                    )
+                                }
+                            }
+                        }
+                    }
                     else -> {
-                        val present = CATEGORY_ORDER.filter { c -> c == "All" || library.any { e -> c in e.cats } }
-                        val filtered = library.filter {
-                            (query.isBlank() || it.name.contains(query, ignoreCase = true)) &&
-                                (category == "All" || category in it.cats)
+                        // Factory presets + the user's saved presets, one library.
+                        val allEntries = remember(library, userPresets.toList()) {
+                            library + userPresets.mapIndexed { i, (nm, st) ->
+                                LibEntry(USER_BANK, USER_CAT, i, nm, categoriesFor(nm), st)
+                            }
+                        }
+                        val present = buildList {
+                            add("All")
+                            if (favorites.isNotEmpty()) add(FAV_CAT)
+                            if (userPresets.isNotEmpty()) add(USER_CAT)
+                            addAll(CATEGORY_ORDER.drop(1).filter { c -> allEntries.any { e -> c in e.cats } })
+                        }
+                        val filtered = allEntries.filter { e ->
+                            (query.isBlank() || e.name.contains(query, ignoreCase = true)) &&
+                                when (category) {
+                                    "All" -> true
+                                    FAV_CAT -> libId(e) in favorites
+                                    USER_CAT -> e.userState != null
+                                    else -> category in e.cats
+                                }
                         }
                         LazyColumn(modifier = Modifier.fillMaxWidth()) {
                             item {
@@ -620,22 +798,53 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                                 )
                             }
                             items(filtered) { e ->
-                                val selected = e.bank == currentBank && e.index == currentPreset.intValue
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { selectFromLibrary(e); closing() }
-                                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                                val selected = e.userState == null &&
+                                    e.bank == currentBank && e.index == currentPreset.intValue
+                                val fav = libId(e) in favorites
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
+                                    Column(
+                                        modifier = Modifier.weight(1f)
+                                            .clickable { selectFromLibrary(e); closing() }
+                                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                                    ) {
+                                        Text(
+                                            e.name,
+                                            color = if (selected) Color(0xFFE0A43B) else Color(0xFFE7EEF0),
+                                            fontSize = 16.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                        Text(
+                                            "${e.bankName}  ·  ${e.cats.joinToString(", ")}",
+                                            color = Color(0xFF8AA0A8),
+                                            fontSize = 11.sp,
+                                        )
+                                    }
+                                    if (e.userState != null) {
+                                        Text(
+                                            "✕", color = Color(0xFF8AA0A8), fontSize = 17.sp,
+                                            modifier = Modifier
+                                                .clickable {
+                                                    userPresets.removeAll { it.first == e.name }
+                                                    favorites.remove(libId(e))
+                                                    persistPrefs()
+                                                }
+                                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                                        )
+                                    }
                                     Text(
-                                        e.name,
-                                        color = if (selected) Color(0xFFE0A43B) else Color(0xFFE7EEF0),
-                                        fontSize = 16.sp,
-                                    )
-                                    Text(
-                                        "${e.bankName}  ·  ${e.cats.joinToString(", ")}",
-                                        color = Color(0xFF8AA0A8),
-                                        fontSize = 11.sp,
+                                        if (fav) "★" else "☆",
+                                        color = if (fav) Color(0xFFE0A43B) else Color(0xFF6E6145),
+                                        fontSize = 20.sp,
+                                        modifier = Modifier
+                                            .clickable {
+                                                if (fav) favorites.remove(libId(e)) else favorites.add(libId(e))
+                                                persistPrefs()
+                                            }
+                                            .padding(horizontal = 10.dp, vertical = 8.dp),
                                     )
                                 }
                             }
@@ -644,6 +853,74 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                 }
             }
         }
+
+        // Save the current sound as a named user preset (persisted, shows up in
+        // the library under "My Presets" and can be favourited).
+        if (showSaveDialog) {
+            AlertDialog(
+                onDismissRequest = { showSaveDialog = false },
+                containerColor = Color(0xFF1B2226),
+                title = { Text("Save preset", color = Color(0xFFE7EEF0)) },
+                text = {
+                    OutlinedTextField(
+                        value = saveName,
+                        onValueChange = { saveName = it },
+                        placeholder = { Text("Preset name") },
+                        singleLine = true,
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val name = saveName.trim().ifBlank { "My Sound" }
+                        val state = AmsynthEngine.nativeGetState()
+                        if (state.isNotBlank()) {
+                            userPresets.removeAll { it.first == name }
+                            userPresets.add(name to state)
+                            soundName = name
+                            persistPrefs()
+                        }
+                        showSaveDialog = false
+                    }) { Text("Save") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showSaveDialog = false }) { Text("Cancel") }
+                },
+            )
+        }
+    }
+}
+
+/**
+ * The compact octave picker + a playable keyboard, dropped into the console's
+ * vertical dead space so the full panel is also playable on tall/square screens.
+ */
+@Composable
+private fun ConsoleKeys(octave: MutableIntState, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "OCT −", color = Color(0xFFE0A43B), fontSize = 14.sp,
+                modifier = Modifier.clickable { if (octave.intValue > -3) octave.intValue-- }
+                    .padding(vertical = 6.dp, horizontal = 6.dp),
+            )
+            Text(
+                "C${3 + octave.intValue}", color = Color(0xFFB9C6CC), fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 8.dp),
+            )
+            Text(
+                "OCT +", color = Color(0xFFE0A43B), fontSize = 14.sp,
+                modifier = Modifier.clickable { if (octave.intValue < 3) octave.intValue++ }
+                    .padding(vertical = 6.dp, horizontal = 6.dp),
+            )
+        }
+        Keyboard(
+            baseNote = 48 + octave.intValue * 12,
+            modifier = Modifier.fillMaxWidth().weight(1f)
+                .padding(horizontal = 10.dp).padding(bottom = 6.dp),
+        )
     }
 }
 

@@ -1,0 +1,10 @@
+Play-first, custom knobs, favourites & remembered state:
+- Play is now the default startup screen.
+- Add or remove knobs on the Play screen from a new "Knobs" picker (no more
+  round-trip through Console → Pin).
+- The full Console now drops a small playable keyboard into any vertical dead
+  space on taller/squarer screens.
+- Favourite any preset (★) and save the current sound as your own named preset;
+  both show up in the searchable library under "★ Favorites" / "My Presets".
+- The app now remembers your sound, pinned knobs, favourites, tuning, root note
+  and mode across restarts.
