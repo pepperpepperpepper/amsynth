@@ -1,5 +1,0 @@
-Console / Play modes:
-- Console (default): the full knob panel takes the whole screen, no piano.
-- Play: the piano with a "mini-patch" of just the knobs you pinned.
-- In Console, tap Pin, then tap knobs to add them to the Play view (Cutoff
-  and Resonance are pinned by default).

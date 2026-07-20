@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -256,15 +257,21 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
             }
 
             if (!playMode) {
-                // Full console: the whole skin panel fit to the screen, no piano.
-                SkinView(
-                    params = params,
-                    values = values,
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    pinMode = pinMode,
-                    pinned = pinned,
-                    onTogglePin = { p -> if (p in pinned) pinned.remove(p) else pinned.add(p) },
-                )
+                // Full console: fill the whole width (big knobs, edge to edge) and
+                // scroll vertically for the lower rows — uses all the screen real
+                // estate instead of letterboxing the panel in the middle.
+                Column(
+                    modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
+                ) {
+                    SkinView(
+                        params = params,
+                        values = values,
+                        modifier = Modifier.fillMaxWidth().aspectRatio(Skin.BG_W.toFloat() / Skin.BG_H),
+                        pinMode = pinMode,
+                        pinned = pinned,
+                        onTogglePin = { p -> if (p in pinned) pinned.remove(p) else pinned.add(p) },
+                    )
+                }
                 if (pinMode) {
                     Text(
                         "Tap knobs to pin them to the Play view",
