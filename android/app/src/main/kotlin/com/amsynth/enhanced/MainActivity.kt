@@ -205,27 +205,29 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
         selectPreset(e.index)
     }
 
-    LaunchedEffect(Unit) { loadBank(currentBank) }
+    LaunchedEffect(Unit) { runCatching { loadBank(currentBank) } }
 
     // Build the cross-bank library index once (off the main thread). Uses a
     // throwaway parser, so it never disturbs the live bank.
     LaunchedEffect(banks) {
-        val lib = withContext(Dispatchers.Default) {
-            val out = mutableListOf<LibEntry>()
-            for (f in banks) {
-                val names = AmsynthEngine.nativeListBankPresets(context.assets.open("banks/$f").readBytes())
-                names.forEachIndexed { i, nm ->
-                    if (nm.isNotBlank()) out.add(LibEntry(f, bankDisplayName(f), i, nm, categoriesFor(nm)))
+        runCatching {
+            val lib = withContext(Dispatchers.Default) {
+                val out = mutableListOf<LibEntry>()
+                for (f in banks) {
+                    val names = AmsynthEngine.nativeListBankPresets(context.assets.open("banks/$f").readBytes())
+                    names.forEachIndexed { i, nm ->
+                        if (nm.isNotBlank()) out.add(LibEntry(f, bankDisplayName(f), i, nm, categoriesFor(nm)))
+                    }
                 }
+                out
             }
-            out
+            library = lib
         }
-        library = lib
     }
 
     // Build the Scala scale index once, off the main thread (cached after first run).
     LaunchedEffect(Unit) {
-        scales = withContext(Dispatchers.IO) { ScalaLibrary.load(context) }
+        runCatching { scales = withContext(Dispatchers.IO) { ScalaLibrary.load(context) } }
     }
 
     DisposableEffect(lifecycleOwner) {

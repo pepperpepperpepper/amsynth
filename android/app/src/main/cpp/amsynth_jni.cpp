@@ -31,6 +31,7 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
+#include <unistd.h>
 
 #define LOG_TAG "amsynth"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  LOG_TAG, __VA_ARGS__)
@@ -148,14 +149,28 @@ public:
 	// is harmless for a save action (same approach as the web build).
 	std::string getState() { return synth_ ? synth_->getState() : std::string(); }
 
-	// Microtuning (Scala .scl / .kbm), applied to the live Synthesizer. Parsing
-	// isn't realtime-safe, but tuning changes are rare and user-initiated — the
-	// desktop GUI applies them the same way while audio is running.
-	bool loadScale(const std::string &s)  { return synth_ && synth_->loadTuningScaleFromString(s.c_str()) == 0; }
-	bool loadKeymap(const std::string &s) { return synth_ && synth_->loadTuningKeymapFromString(s.c_str()) == 0; }
-	void resetTuning() { if (synth_) { synth_->loadTuningScaleFromString(""); synth_->loadTuningKeymapFromString(""); } }
+	// Microtuning (Scala .scl / .kbm). Loading rewrites the TuningMap vectors,
+	// which the audio thread reads in process() — applying directly races and
+	// crashes (use-after-realloc / empty-scale OOB). So each change runs while the
+	// audio callback is parked (outputs silence for the brief mutation window).
+	bool loadScale(const std::string &s)  { bool ok = false; withTuningGuard([&] { ok = synth_->loadTuningScaleFromString(s.c_str()) == 0; }); return ok; }
+	bool loadKeymap(const std::string &s) { bool ok = false; withTuningGuard([&] { ok = synth_->loadTuningKeymapFromString(s.c_str()) == 0; }); return ok; }
+	void resetTuning() { withTuningGuard([&] { synth_->loadTuningScaleFromString(""); synth_->loadTuningKeymapFromString(""); }); }
 	// The MIDI note that becomes the scale's 1/1 (the tuning root / tonic).
-	void setTuningRoot(int note) { if (synth_) synth_->setProperty("tuning_root", std::to_string(note).c_str()); }
+	void setTuningRoot(int note) { withTuningGuard([&] { synth_->setProperty("tuning_root", std::to_string(note).c_str()); }); }
+
+	// Run fn (which mutates the live tuning) while the audio callback is parked.
+	// Signals the callback to park, waits for it to acknowledge (or ~250ms if the
+	// stream isn't running), applies the change, then un-parks.
+	template <class Fn>
+	void withTuningGuard(Fn &&fn) {
+		if (!synth_) return;
+		applyingTuning_.store(true, std::memory_order_release);
+		for (int i = 0; i < 250 && !audioParked_.load(std::memory_order_acquire); ++i)
+			usleep(1000);
+		fn();
+		applyingTuning_.store(false, std::memory_order_release);
+	}
 
 	// Reading a parameter races the audio thread by a single float; harmless and
 	// only used to seed the UI.
@@ -168,6 +183,17 @@ public:
 	// --- audio thread ------------------------------------------------------
 	oboe::DataCallbackResult onAudioReady(oboe::AudioStream *, void *audioData,
 	                                      int32_t numFrames) override {
+		// While the UI thread is applying a tuning change (which rewrites the
+		// TuningMap vectors the note path reads), park: output silence and don't
+		// touch the synth, so process() never reads the tuning mid-mutation.
+		if (applyingTuning_.load(std::memory_order_acquire)) {
+			audioParked_.store(true, std::memory_order_release);
+			float *silence = static_cast<float *>(audioData);
+			for (int i = 0; i < numFrames * 2; ++i) silence[i] = 0.f;
+			return oboe::DataCallbackResult::Continue;
+		}
+		audioParked_.store(false, std::memory_order_release);
+
 		// Apply queued control changes in sync with rendering.
 		params_.drainTo(*synth_);
 
@@ -198,6 +224,9 @@ private:
 	std::vector<MidiMsg> midiStore_;
 	std::vector<amsynth_midi_event_t> midiEvents_;
 	std::vector<amsynth_midi_cc_t> midiOut_;
+	// Tuning-change handshake between the UI thread and the audio callback.
+	std::atomic<bool> applyingTuning_ {false};
+	std::atomic<bool> audioParked_ {false};
 };
 
 std::unique_ptr<AmsynthAudio> g_engine;

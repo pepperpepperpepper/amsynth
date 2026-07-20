@@ -1,0 +1,6 @@
+Crash fixes:
+- Fixed a crash when changing tuning while notes are playing (the audio thread
+  no longer reads the tuning while it is being updated).
+- No longer recreates itself on screen/size changes (foldables, resizing),
+  which was churning the audio engine.
+- Startup is hardened against asset/parse errors.
