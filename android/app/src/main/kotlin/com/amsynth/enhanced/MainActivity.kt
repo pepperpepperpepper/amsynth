@@ -8,7 +8,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -218,12 +221,23 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                 // the 3:2 panel blends into the instrument instead of framing it.
                 .background(Color(0xFF262626)),
         ) {
-            // The native skin panel fills the space above the keyboard.
-            SkinView(
-                params = params,
-                values = values,
-                modifier = Modifier.weight(1f).fillMaxWidth().padding(4.dp),
-            )
+            // The skin panel fills the full width (preserving its 3:2 shape, so
+            // the knobs are as large as possible); scroll vertically to reach
+            // the lower sections on short/landscape screens.
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                SkinView(
+                    params = params,
+                    values = values,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(Skin.BG_W.toFloat() / Skin.BG_H),
+                )
+            }
 
             // Compact octave strip (Panic lives in the Menu as "All notes off").
             Row(
