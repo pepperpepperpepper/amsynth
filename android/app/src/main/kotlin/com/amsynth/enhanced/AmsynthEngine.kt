@@ -27,6 +27,8 @@ object AmsynthEngine {
     external fun nativeGetParameterMin(index: Int): Float
     external fun nativeGetParameterMax(index: Int): Float
     external fun nativeGetParameterDefault(index: Int): Float
+    external fun nativeGetParameterStep(index: Int): Float
+    external fun nativeGetParameterDisplay(index: Int, value: Float): String
 
     // Preset bank (loaded from a bundled asset; independent of the audio stream).
     external fun nativeLoadBank(data: ByteArray): Int
@@ -45,6 +47,7 @@ object AmsynthEngine {
         val min: Float,
         val max: Float,
         val default: Float,
+        val step: Float,
     )
 
     /** Static parameter table (available before the stream starts). */
@@ -56,8 +59,12 @@ object AmsynthEngine {
                 min = nativeGetParameterMin(i),
                 max = nativeGetParameterMax(i),
                 default = nativeGetParameterDefault(i),
+                step = nativeGetParameterStep(i),
             )
         }
+
+    /** Formatted value as the desktop GUI shows it (e.g. "Saw", "24 dB/oct"). */
+    fun display(index: Int, value: Float): String = nativeGetParameterDisplay(index, value)
 
     /** A named slot in the loaded bank. [index] is the raw bank slot (0..127). */
     data class Preset(val index: Int, val name: String)

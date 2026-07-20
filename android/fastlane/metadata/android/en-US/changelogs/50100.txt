@@ -1,5 +1,0 @@
-Presets, a playable keyboard, and save/load:
-- Factory preset bank (26 sounds) with a preset browser.
-- Sweepable multi-touch keyboard: slide between keys, play chords.
-- Octave up/down, panic (all notes off).
-- Save and load your own sounds via the system file picker.

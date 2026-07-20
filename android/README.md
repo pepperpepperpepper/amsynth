@@ -2,14 +2,15 @@
 
 **Install:** available from the Oops WTF F-Droid repo — add
 `https://fdroid.uh-oh.wtf/repo` in an F-Droid client, or grab the APK directly:
-<https://fdroid.uh-oh.wtf/repo/com.amsynth.enhanced_50100.apk>.
+<https://fdroid.uh-oh.wtf/repo/com.amsynth.enhanced_50200.apk>.
 
 A native Android front-end for amsynth. The same platform-free DSP engine in
 `src/core/synth` that powers the desktop, plugin, and web builds is compiled with
 the **NDK** and driven by **[Oboe](https://github.com/google/oboe)** for
-low-latency audio. The UI is **Jetpack Compose** — a preset browser, a sweepable
-multi-touch keyboard with octave shift, save/load of sounds, and a slider per
-parameter.
+low-latency audio. The UI is **Jetpack Compose**, styled after the desktop
+panel — rotary knobs grouped into oscillator/mixer/LFO/filter/envelope/effects/
+master sections, a bank + preset browser (all factory banks bundled), a
+sweepable multi-touch keyboard with octave shift, and save/load of sounds.
 
 Like the web preview, only the audio engine is shared; there is no JUCE here.
 
@@ -90,21 +91,25 @@ short/full description, per-version changelogs) that `fdroid update` reads.
 
 Implemented:
 - Engine create/destroy tied to the activity foreground lifecycle.
-- A **factory preset bank** (bundled as `assets/banks/amsynth_factory.bank`) with
-  a preset browser. Selecting a preset pushes its parameters through the
-  `ParameterQueue`, so it applies on the audio thread like a slider drag.
+- **Desktop-style knob panel**: every parameter is a rotary knob (drag to
+  change; discrete params snap to their step; the value is formatted by the
+  engine's `parameter_get_display`, so it reads "Saw", "24 dB/oct", … like the
+  desktop). Knobs are grouped into the same sections as the desktop GUI.
+- **All factory banks bundled** under `assets/banks/` (Factory, Brian's 01–22,
+  Patrik's 01–05), with a bank picker and preset browser. Selecting a preset
+  pushes its parameters through the `ParameterQueue`, so it applies on the audio
+  thread with no UI/audio race.
 - A **sweepable, multi-touch keyboard**: a single pointer surface hit-tests each
   touch, so sliding between keys re-triggers notes (legato glide) and several
   fingers sound at once. Octave up/down and panic (all-notes-off).
 - **Save / load a sound** via the system file picker (SAF) — `getState` on the
   native side, and `applyState` parses a sound and applies it through the queue.
-- Note on/off, all-notes-off, and live parameter control (slider per parameter).
 - Raw-MIDI plumbing (`midi()`/`nativeSetParameter`) ready to wire to Android
   MIDI (`android.media.midi`) the way the web build uses Web MIDI.
 
 Not yet wired (parity with the web preview, in rough priority order):
-- Multiple banks (only the factory bank is bundled) + a bank picker.
 - Scala `.scl` / `.kbm` tuning and the tonic-split controls.
 - CC → parameter map loading.
 - Hardware MIDI input via `android.media.midi`.
-- A skinned panel instead of generic sliders.
+- The actual desktop skin bitmaps (this is a clean-drawn knob panel, not the
+  amsynth skin PNGs).

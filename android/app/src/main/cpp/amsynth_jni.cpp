@@ -257,7 +257,7 @@ Java_com_amsynth_enhanced_AmsynthEngine_nativeGetParameterName(JNIEnv *env, jobj
 static float paramProp(int index, int which) {
 	double mn = 0, mx = 0, def = 0, step = 0;
 	get_parameter_properties(index, &mn, &mx, &def, &step);
-	switch (which) { case 0: return (float) mn; case 1: return (float) mx; default: return (float) def; }
+	switch (which) { case 0: return (float) mn; case 1: return (float) mx; case 3: return (float) step; default: return (float) def; }
 }
 
 JNIEXPORT jfloat JNICALL
@@ -268,6 +268,19 @@ Java_com_amsynth_enhanced_AmsynthEngine_nativeGetParameterMax(JNIEnv *, jobject,
 
 JNIEXPORT jfloat JNICALL
 Java_com_amsynth_enhanced_AmsynthEngine_nativeGetParameterDefault(JNIEnv *, jobject, jint index) { return paramProp(index, 2); }
+
+// Snap size for discrete parameters (0 for continuous ones).
+JNIEXPORT jfloat JNICALL
+Java_com_amsynth_enhanced_AmsynthEngine_nativeGetParameterStep(JNIEnv *, jobject, jint index) { return paramProp(index, 3); }
+
+// Human-readable value, exactly as the desktop GUI shows it (e.g. "Saw",
+// "24 dB/oct", "1.50 Hz"). Used for the label under each knob.
+JNIEXPORT jstring JNICALL
+Java_com_amsynth_enhanced_AmsynthEngine_nativeGetParameterDisplay(JNIEnv *env, jobject, jint index, jfloat value) {
+	char buf[64] = {0};
+	parameter_get_display(index, value, buf, sizeof(buf));
+	return env->NewStringUTF(buf);
+}
 
 // --- presets / banks -------------------------------------------------------
 

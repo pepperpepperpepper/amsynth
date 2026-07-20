@@ -38,8 +38,11 @@ Description: |
 
   Features:
 
-  * The full amsynth synthesis engine, with every parameter exposed as a slider.
-  * A factory bank of preset sounds, with a preset browser.
+  * The full amsynth synthesis engine, presented as a desktop-style panel of
+    rotary knobs grouped into oscillator, mixer, LFO, filter, envelope, effects
+    and master sections.
+  * All the factory preset banks (Factory, Brian's, Patrik's), with a bank and
+    preset browser.
   * A sweepable multi-touch keyboard with octave shift.
   * Save and load your own sounds via the system file picker.
   * Low-latency audio via Oboe (AAudio where available).
@@ -47,6 +50,6 @@ Description: |
 AuthorName: amsynth
 AutoUpdateMode: None
 UpdateCheckMode: None
-CurrentVersion: "5.1"
-CurrentVersionCode: 50100
+CurrentVersion: "5.2"
+CurrentVersionCode: 50200
 Builds: []
