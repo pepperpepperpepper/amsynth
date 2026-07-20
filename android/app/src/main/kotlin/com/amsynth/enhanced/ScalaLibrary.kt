@@ -35,7 +35,7 @@ object ScalaLibrary {
             index?.let { return it }
             val z = cacheZip(context)
             zip = z
-            val cacheIdx = File(context.cacheDir, "scala_index_v1.tsv")
+            val cacheIdx = File(context.cacheDir, "scala_index_v2.tsv")
             val list: List<Scale> =
                 if (cacheIdx.exists() && cacheIdx.length() > 0L) {
                     cacheIdx.readLines().mapNotNull { line ->
@@ -51,7 +51,8 @@ object ScalaLibrary {
                             if (ze.isDirectory || !ze.name.endsWith(".scl", ignoreCase = true)) continue
                             val base = ze.name.substringAfterLast('/').removeSuffix(".scl")
                             // The .scl description is the first non-comment line.
-                            val desc = zf.getInputStream(ze).bufferedReader().useLines { seq ->
+                            // The archive is Latin-1, so decode names/accents correctly.
+                            val desc = zf.getInputStream(ze).bufferedReader(Charsets.ISO_8859_1).useLines { seq ->
                                 seq.map { it.trim() }.firstOrNull { !it.startsWith("!") } ?: ""
                             }
                             out.add(Scale(ze.name, if (desc.isNotBlank()) "$desc  ·  $base" else base))
