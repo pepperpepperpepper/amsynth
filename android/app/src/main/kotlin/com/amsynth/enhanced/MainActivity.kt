@@ -8,6 +8,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -535,6 +536,18 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                                             .padding(horizontal = 14.dp, vertical = 2.dp),
                                     )
                                 }
+                                // Tap a key to pick the root note directly.
+                                NotePicker(
+                                    selected = rootNote.intValue,
+                                    onSelect = { n ->
+                                        rootNote.intValue = n
+                                        AmsynthEngine.nativeSetTuningRoot(n)
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(64.dp)
+                                        .padding(horizontal = 20.dp, vertical = 4.dp),
+                                )
                                 Text(
                                     if (scales.isEmpty()) "Loading Scala library…" else "${tuneFiltered.size} scales",
                                     color = Color(0xFF8AA0A8), fontSize = 11.sp,
@@ -618,6 +631,70 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * A compact two-octave (C3..C5) keyboard for picking a note by tapping — used
+ * to choose the tuning root (tonic). Highlights the [selected] note; taps call
+ * [onSelect] with the tapped MIDI note. It does not play sound.
+ */
+@Composable
+private fun NotePicker(selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+    val base = 48 // C3
+    val whiteOffsets = intArrayOf(0, 2, 4, 5, 7, 9, 11)
+    val whiteNotes = remember {
+        buildList {
+            for (o in 0..1) for (w in whiteOffsets) add(base + 12 * o + w)
+            add(base + 24)
+        }
+    }
+    val blackKeys = remember {
+        val afterWhite = intArrayOf(0, 1, 3, 4, 5)
+        val noteOffset = intArrayOf(1, 3, 6, 8, 10)
+        buildList {
+            for (o in 0..1) for (k in afterWhite.indices)
+                add(Pair(o * 7 + afterWhite[k], base + 12 * o + noteOffset[k]))
+        }
+    }
+    val whiteCount = whiteNotes.size
+
+    fun hitTest(pos: Offset, size: Size): Int {
+        val ww = size.width / whiteCount
+        val bw = ww * 0.62f
+        val bh = size.height * 0.6f
+        if (pos.y <= bh) {
+            for ((whiteIdx, note) in blackKeys) {
+                val cx = (whiteIdx + 1) * ww
+                if (pos.x >= cx - bw / 2 && pos.x <= cx + bw / 2) return note
+            }
+        }
+        return whiteNotes[(pos.x / ww).toInt().coerceIn(0, whiteCount - 1)]
+    }
+
+    Canvas(
+        modifier = modifier.pointerInput(Unit) {
+            detectTapGestures { off -> onSelect(hitTest(off, Size(size.width.toFloat(), size.height.toFloat()))) }
+        },
+    ) {
+        val ww = size.width / whiteCount
+        val bw = ww * 0.62f
+        val bh = size.height * 0.6f
+        for (i in 0 until whiteCount) {
+            drawRect(
+                color = if (whiteNotes[i] == selected) Color(0xFFE0A43B) else Color(0xFFEEF3F4),
+                topLeft = Offset(i * ww, 0f),
+                size = Size(ww - 1.5f, size.height),
+            )
+        }
+        for ((whiteIdx, note) in blackKeys) {
+            val cx = (whiteIdx + 1) * ww
+            drawRect(
+                color = if (note == selected) Color(0xFFB9791F) else Color(0xFF1B2226),
+                topLeft = Offset(cx - bw / 2, 0f),
+                size = Size(bw, bh),
+            )
         }
     }
 }
