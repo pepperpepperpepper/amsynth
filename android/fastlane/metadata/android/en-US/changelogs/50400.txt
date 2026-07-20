@@ -1,3 +1,0 @@
-Full-width control panel:
-- The skin now scales to the full screen width so the knobs are as large as
-  possible; scroll vertically to reach lower sections on short screens.

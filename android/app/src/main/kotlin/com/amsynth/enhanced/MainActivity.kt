@@ -51,6 +51,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -175,52 +176,61 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF1E1E1E),
-                    titleContentColor = Color(0xFFE0A43B),
-                ),
-                title = { Text(soundName, fontSize = 17.sp, maxLines = 1) },
-                actions = {
-                    TextButton(onClick = { sheet = Sheet.BANKS }) {
-                        Text("Banks", color = Color(0xFFE0A43B))
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            // Neutral near-black matched to the skin so the letterbox around the
+            // 3:2 panel blends into the instrument instead of framing it.
+            .background(Color(0xFF262626)),
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Slim header: sound name + bank/preset/menu. Far thinner than a
+            // Material TopAppBar (which wastes ~64dp of a short screen).
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF1E1E1E))
+                    .padding(horizontal = 12.dp, vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    soundName,
+                    color = Color(0xFFE0A43B),
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    "Banks", color = Color(0xFFE0A43B), fontSize = 14.sp,
+                    modifier = Modifier.clickable { sheet = Sheet.BANKS }.padding(horizontal = 8.dp, vertical = 3.dp),
+                )
+                Text(
+                    "Presets", color = Color(0xFFE0A43B), fontSize = 14.sp,
+                    modifier = Modifier.clickable { sheet = Sheet.PRESETS }.padding(horizontal = 8.dp, vertical = 3.dp),
+                )
+                Box {
+                    Text(
+                        "Menu", color = Color(0xFFE0A43B), fontSize = 14.sp,
+                        modifier = Modifier.clickable { showMenu = true }.padding(horizontal = 8.dp, vertical = 3.dp),
+                    )
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(text = { Text("Save sound…") }, onClick = {
+                            showMenu = false
+                            saveLauncher.launch("${soundName.ifBlank { "sound" }}.amSynthState")
+                        })
+                        DropdownMenuItem(text = { Text("Load sound…") }, onClick = {
+                            showMenu = false
+                            loadLauncher.launch(arrayOf("*/*"))
+                        })
+                        DropdownMenuItem(text = { Text("All notes off") }, onClick = {
+                            showMenu = false
+                            AmsynthEngine.nativeAllNotesOff()
+                        })
                     }
-                    TextButton(onClick = { sheet = Sheet.PRESETS }) {
-                        Text("Presets", color = Color(0xFFE0A43B))
-                    }
-                    Box {
-                        TextButton(onClick = { showMenu = true }) {
-                            Text("Menu", color = Color(0xFFE0A43B))
-                        }
-                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                            DropdownMenuItem(text = { Text("Save sound…") }, onClick = {
-                                showMenu = false
-                                saveLauncher.launch("${soundName.ifBlank { "sound" }}.amSynthState")
-                            })
-                            DropdownMenuItem(text = { Text("Load sound…") }, onClick = {
-                                showMenu = false
-                                loadLauncher.launch(arrayOf("*/*"))
-                            })
-                            DropdownMenuItem(text = { Text("All notes off") }, onClick = {
-                                showMenu = false
-                                AmsynthEngine.nativeAllNotesOff()
-                            })
-                        }
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                // Neutral near-black matched to the skin so the letterbox around
-                // the 3:2 panel blends into the instrument instead of framing it.
-                .background(Color(0xFF262626)),
-        ) {
+                }
+            }
+
             // The skin panel fills the full width (preserving its 3:2 shape, so
             // the knobs are as large as possible); scroll vertically to reach
             // the lower sections on short/landscape screens.
