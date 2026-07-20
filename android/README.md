@@ -2,13 +2,14 @@
 
 **Install:** available from the Oops WTF F-Droid repo — add
 `https://fdroid.uh-oh.wtf/repo` in an F-Droid client, or grab the APK directly:
-<https://fdroid.uh-oh.wtf/repo/com.amsynth.enhanced_11400.apk>.
+<https://fdroid.uh-oh.wtf/repo/com.amsynth.enhanced_50100.apk>.
 
 A native Android front-end for amsynth. The same platform-free DSP engine in
 `src/core/synth` that powers the desktop, plugin, and web builds is compiled with
 the **NDK** and driven by **[Oboe](https://github.com/google/oboe)** for
-low-latency audio. The UI is **Jetpack Compose** — an on-screen keyboard plus a
-slider per parameter.
+low-latency audio. The UI is **Jetpack Compose** — a preset browser, a sweepable
+multi-touch keyboard with octave shift, save/load of sounds, and a slider per
+parameter.
 
 Like the web preview, only the audio engine is shared; there is no JUCE here.
 
@@ -87,19 +88,22 @@ short/full description, per-version changelogs) that `fdroid update` reads.
 
 ## Status / next steps
 
-This module is a **scaffold**: it is structured to build with a standard NDK
-toolchain but has not been compiled in this repo's CI (no NDK is installed in the
-authoring environment). When you first build it, expect to pin exact NDK/CMake
-versions to whatever your SDK has.
-
 Implemented:
 - Engine create/destroy tied to the activity foreground lifecycle.
-- Note on/off (touch keyboard), all-notes-off, and live parameter control.
+- A **factory preset bank** (bundled as `assets/banks/amsynth_factory.bank`) with
+  a preset browser. Selecting a preset pushes its parameters through the
+  `ParameterQueue`, so it applies on the audio thread like a slider drag.
+- A **sweepable, multi-touch keyboard**: a single pointer surface hit-tests each
+  touch, so sliding between keys re-triggers notes (legato glide) and several
+  fingers sound at once. Octave up/down and panic (all-notes-off).
+- **Save / load a sound** via the system file picker (SAF) — `getState` on the
+  native side, and `applyState` parses a sound and applies it through the queue.
+- Note on/off, all-notes-off, and live parameter control (slider per parameter).
 - Raw-MIDI plumbing (`midi()`/`nativeSetParameter`) ready to wire to Android
   MIDI (`android.media.midi`) the way the web build uses Web MIDI.
 
 Not yet wired (parity with the web preview, in rough priority order):
-- Preset banks + the save/load-sound state round-trip (`getState`/`setState`).
+- Multiple banks (only the factory bank is bundled) + a bank picker.
 - Scala `.scl` / `.kbm` tuning and the tonic-split controls.
 - CC → parameter map loading.
 - Hardware MIDI input via `android.media.midi`.

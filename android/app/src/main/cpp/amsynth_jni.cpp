@@ -15,6 +15,8 @@
  */
 
 #include "core/synth/Synthesizer.h"
+#include "core/synth/PresetController.h"
+#include "core/synth/Preset.h"
 #include "core/controls.h"
 #include "core/midi.h"
 #include "core/types.h"
@@ -133,6 +135,19 @@ public:
 	}
 	void setParameter(int index, float value) { params_.push(index, value, /*normalized=*/false); }
 
+	// Apply a whole sound (preset) by pushing every parameter through the same
+	// lock-free queue — so the audio thread applies it, exactly like a slider
+	// drag. The UI thread never touches the live Synthesizer here.
+	void applyPreset(const Preset &p) {
+		for (int i = 0; i < kAmsynthParameterCount; i++)
+			setParameter(i, p.getParameter(i).getValue());
+	}
+
+	// Serialize the current sound for "save". Reads the live preset's floats;
+	// like getParameter() this races the audio thread by at most a block, which
+	// is harmless for a save action (same approach as the web build).
+	std::string getState() { return synth_ ? synth_->getState() : std::string(); }
+
 	// Reading a parameter races the audio thread by a single float; harmless and
 	// only used to seed the UI.
 	float getParameter(int index) {
@@ -177,6 +192,12 @@ private:
 };
 
 std::unique_ptr<AmsynthAudio> g_engine;
+
+// The loaded preset bank. Owned and touched only by the UI (JNI) thread — the
+// audio thread never reads it. Selecting a preset copies its parameters into the
+// lock-free queue, so this stays independent of the engine's lifecycle and can
+// be loaded before audio starts.
+std::unique_ptr<PresetController> g_bank;
 
 } // namespace
 
@@ -247,5 +268,89 @@ Java_com_amsynth_enhanced_AmsynthEngine_nativeGetParameterMax(JNIEnv *, jobject,
 
 JNIEXPORT jfloat JNICALL
 Java_com_amsynth_enhanced_AmsynthEngine_nativeGetParameterDefault(JNIEnv *, jobject, jint index) { return paramProp(index, 2); }
+
+// --- presets / banks -------------------------------------------------------
+
+// Parse a bank file (bytes) into g_bank. Returns the number of non-empty
+// presets, or -1 on a parse error.
+JNIEXPORT jint JNICALL
+Java_com_amsynth_enhanced_AmsynthEngine_nativeLoadBank(JNIEnv *env, jobject, jbyteArray data) {
+	const jsize len = env->GetArrayLength(data);
+	std::string s((size_t) len, '\0');
+	if (len > 0)
+		env->GetByteArrayRegion(data, 0, len, reinterpret_cast<jbyte *>(&s[0]));
+	if (!g_bank)
+		g_bank = std::make_unique<PresetController>();
+	if (g_bank->loadPresetsFromString(s) != 0)
+		return -1;
+	int n = 0;
+	for (int i = 0; i < PresetController::kNumPresets; i++)
+		if (!g_bank->getPreset(i).getName().empty())
+			n++;
+	return n;
+}
+
+// Total slots in a bank (fixed at 128). The UI filters out empty-named slots.
+JNIEXPORT jint JNICALL
+Java_com_amsynth_enhanced_AmsynthEngine_nativeGetPresetCount(JNIEnv *, jobject) {
+	return PresetController::kNumPresets;
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_amsynth_enhanced_AmsynthEngine_nativeGetPresetName(JNIEnv *env, jobject, jint i) {
+	if (!g_bank || i < 0 || i >= PresetController::kNumPresets)
+		return env->NewStringUTF("");
+	return env->NewStringUTF(g_bank->getPreset(i).getName().c_str());
+}
+
+// The parameter values of bank preset i — used to seed the UI sliders. Reads
+// only g_bank, so it works before the audio engine exists.
+JNIEXPORT jfloatArray JNICALL
+Java_com_amsynth_enhanced_AmsynthEngine_nativeGetPresetValues(JNIEnv *env, jobject, jint i) {
+	jfloatArray arr = env->NewFloatArray(kAmsynthParameterCount);
+	if (!g_bank || i < 0 || i >= PresetController::kNumPresets)
+		return arr;
+	float vals[kAmsynthParameterCount];
+	const Preset &p = g_bank->getPreset(i);
+	for (int j = 0; j < kAmsynthParameterCount; j++)
+		vals[j] = p.getParameter(j).getValue();
+	env->SetFloatArrayRegion(arr, 0, kAmsynthParameterCount, vals);
+	return arr;
+}
+
+// Make bank preset i the live sound (applied on the audio thread).
+JNIEXPORT void JNICALL
+Java_com_amsynth_enhanced_AmsynthEngine_nativeSelectPreset(JNIEnv *, jobject, jint i) {
+	if (g_engine && g_bank && i >= 0 && i < PresetController::kNumPresets)
+		g_engine->applyPreset(g_bank->getPreset(i));
+}
+
+// --- save / load a sound ---------------------------------------------------
+
+JNIEXPORT jstring JNICALL
+Java_com_amsynth_enhanced_AmsynthEngine_nativeGetState(JNIEnv *env, jobject) {
+	return env->NewStringUTF(g_engine ? g_engine->getState().c_str() : "");
+}
+
+// Apply a saved sound (preset-state string). Returns the applied parameter
+// values for the UI, or null if the string could not be parsed.
+JNIEXPORT jfloatArray JNICALL
+Java_com_amsynth_enhanced_AmsynthEngine_nativeApplyState(JNIEnv *env, jobject, jstring s) {
+	const char *cs = env->GetStringUTFChars(s, nullptr);
+	std::string str(cs ? cs : "");
+	if (cs)
+		env->ReleaseStringUTFChars(s, cs);
+	Preset tmp;
+	if (!tmp.fromString(str))
+		return nullptr;
+	float vals[kAmsynthParameterCount];
+	for (int j = 0; j < kAmsynthParameterCount; j++)
+		vals[j] = tmp.getParameter(j).getValue();
+	if (g_engine)
+		g_engine->applyPreset(tmp);
+	jfloatArray arr = env->NewFloatArray(kAmsynthParameterCount);
+	env->SetFloatArrayRegion(arr, 0, kAmsynthParameterCount, vals);
+	return arr;
+}
 
 } // extern "C"

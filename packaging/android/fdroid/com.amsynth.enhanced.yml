@@ -39,12 +39,14 @@ Description: |
   Features:
 
   * The full amsynth synthesis engine, with every parameter exposed as a slider.
-  * A touch keyboard for playing directly on the device.
+  * A factory bank of preset sounds, with a preset browser.
+  * A sweepable multi-touch keyboard with octave shift.
+  * Save and load your own sounds via the system file picker.
   * Low-latency audio via Oboe (AAudio where available).
 
 AuthorName: amsynth
 AutoUpdateMode: None
 UpdateCheckMode: None
-CurrentVersion: "5.0"
-CurrentVersionCode: 50000
+CurrentVersion: "5.1"
+CurrentVersionCode: 50100
 Builds: []

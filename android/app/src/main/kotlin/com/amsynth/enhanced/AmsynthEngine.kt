@@ -28,6 +28,17 @@ object AmsynthEngine {
     external fun nativeGetParameterMax(index: Int): Float
     external fun nativeGetParameterDefault(index: Int): Float
 
+    // Preset bank (loaded from a bundled asset; independent of the audio stream).
+    external fun nativeLoadBank(data: ByteArray): Int
+    external fun nativeGetPresetCount(): Int
+    external fun nativeGetPresetName(index: Int): String
+    external fun nativeGetPresetValues(index: Int): FloatArray
+    external fun nativeSelectPreset(index: Int)
+
+    // Save / load a single sound (preset-state string).
+    external fun nativeGetState(): String
+    external fun nativeApplyState(state: String): FloatArray?
+
     data class ParamInfo(
         val index: Int,
         val name: String,
@@ -47,4 +58,13 @@ object AmsynthEngine {
                 default = nativeGetParameterDefault(i),
             )
         }
+
+    /** A named slot in the loaded bank. [index] is the raw bank slot (0..127). */
+    data class Preset(val index: Int, val name: String)
+
+    /** Non-empty presets in the loaded bank, in bank order. */
+    fun presets(): List<Preset> =
+        (0 until nativeGetPresetCount())
+            .map { Preset(it, nativeGetPresetName(it)) }
+            .filter { it.name.isNotBlank() }
 }

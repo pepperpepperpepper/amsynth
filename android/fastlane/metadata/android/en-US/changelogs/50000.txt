@@ -1,2 +1,0 @@
-First Android release of AMsynth enhanced: the full amsynth engine with a touch
-keyboard and a slider for every parameter, low-latency audio via Oboe.
