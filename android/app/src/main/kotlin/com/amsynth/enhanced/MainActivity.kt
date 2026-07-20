@@ -60,6 +60,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -387,21 +388,30 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                     )
                 }
             } else {
-                // Play: the pinned mini-patch above a large keyboard.
-                if (pinned.isEmpty()) {
-                    Text(
-                        "No knobs pinned yet — go to Console, tap Pin, then tap knobs.",
-                        color = Color(0xFFB9C6CC),
-                        fontSize = 13.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth().padding(12.dp),
-                    )
-                } else {
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.Center,
-                    ) {
-                        pinned.forEach { p -> MiniKnob(p, params, values) }
+                // Play: pinned mini-patch (centered in the free space) above a
+                // keyboard sized to a fraction of the screen — so on tall/large
+                // screens the keyboard doesn't balloon and the knobs don't strand.
+                val kbHeight = (LocalConfiguration.current.screenHeightDp * 0.34f).dp
+                    .coerceIn(150.dp, 320.dp)
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (pinned.isEmpty()) {
+                        Text(
+                            "No knobs pinned yet — go to Console, tap Pin, then tap knobs.",
+                            color = Color(0xFFB9C6CC),
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().padding(24.dp),
+                        )
+                    } else {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            pinned.forEach { p -> MiniKnob(p, params, values) }
+                        }
                     }
                 }
 
@@ -426,8 +436,8 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                 Keyboard(
                     baseNote = 48 + octave.intValue * 12,
                     modifier = Modifier
-                        .weight(1f)
                         .fillMaxWidth()
+                        .height(kbHeight)
                         .padding(horizontal = 10.dp)
                         .padding(bottom = 6.dp),
                 )

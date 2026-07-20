@@ -1,0 +1,4 @@
+Better layout on large / tall screens:
+- Play view: the keyboard is now sized to a fraction of the screen instead of
+  stretching to fill it, so it no longer balloons on big/tall displays.
+- Pinned knobs are larger and centered in the free space.

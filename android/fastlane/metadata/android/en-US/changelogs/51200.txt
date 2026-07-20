@@ -1,3 +1,0 @@
-Pick the tuning root on a keyboard:
-- The Tuning panel now has a little tap-to-select keyboard for choosing the
-  root note (tonic), alongside the − / + stepper.

@@ -50,6 +50,6 @@ Description: |
 AuthorName: amsynth
 AutoUpdateMode: None
 UpdateCheckMode: None
-CurrentVersion: "5.12"
-CurrentVersionCode: 51200
+CurrentVersion: "5.13"
+CurrentVersionCode: 51300
 Builds: []

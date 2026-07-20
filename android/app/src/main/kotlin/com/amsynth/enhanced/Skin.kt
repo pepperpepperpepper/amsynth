@@ -280,12 +280,12 @@ fun MiniKnob(
     val bmp = remember(ctl.res) { loadBitmap(context, "skin/" + res.file) }
 
     Column(
-        modifier = modifier.width(64.dp).padding(horizontal = 4.dp, vertical = 2.dp),
+        modifier = modifier.width(96.dp).padding(horizontal = 6.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Canvas(
             modifier = Modifier
-                .width(56.dp)
+                .width(84.dp)
                 .aspectRatio(res.w.toFloat() / res.h)
                 .pointerInput(param) {
                     awaitPointerEventScope {
@@ -342,7 +342,7 @@ fun MiniKnob(
         Text(
             Skin.label[param] ?: "",
             color = Color(0xFFE7EEF0),
-            fontSize = 10.sp,
+            fontSize = 12.sp,
             maxLines = 1,
             textAlign = TextAlign.Center,
         )
