@@ -148,6 +148,13 @@ public:
 	// is harmless for a save action (same approach as the web build).
 	std::string getState() { return synth_ ? synth_->getState() : std::string(); }
 
+	// Microtuning (Scala .scl / .kbm), applied to the live Synthesizer. Parsing
+	// isn't realtime-safe, but tuning changes are rare and user-initiated — the
+	// desktop GUI applies them the same way while audio is running.
+	bool loadScale(const std::string &s)  { return synth_ && synth_->loadTuningScaleFromString(s.c_str()) == 0; }
+	bool loadKeymap(const std::string &s) { return synth_ && synth_->loadTuningKeymapFromString(s.c_str()) == 0; }
+	void resetTuning() { if (synth_) { synth_->loadTuningScaleFromString(""); synth_->loadTuningKeymapFromString(""); } }
+
 	// Reading a parameter races the audio thread by a single float; harmless and
 	// only used to seed the UI.
 	float getParameter(int index) {
@@ -406,6 +413,29 @@ Java_com_amsynth_enhanced_AmsynthEngine_nativeApplyState(JNIEnv *env, jobject, j
 	jfloatArray arr = env->NewFloatArray(kAmsynthParameterCount);
 	env->SetFloatArrayRegion(arr, 0, kAmsynthParameterCount, vals);
 	return arr;
+}
+
+// --- microtuning (Scala) ---------------------------------------------------
+
+JNIEXPORT jboolean JNICALL
+Java_com_amsynth_enhanced_AmsynthEngine_nativeLoadScale(JNIEnv *env, jobject, jstring s) {
+	const char *cs = env->GetStringUTFChars(s, nullptr);
+	std::string str(cs ? cs : "");
+	if (cs) env->ReleaseStringUTFChars(s, cs);
+	return (jboolean) (g_engine && g_engine->loadScale(str));
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_amsynth_enhanced_AmsynthEngine_nativeLoadKeymap(JNIEnv *env, jobject, jstring s) {
+	const char *cs = env->GetStringUTFChars(s, nullptr);
+	std::string str(cs ? cs : "");
+	if (cs) env->ReleaseStringUTFChars(s, cs);
+	return (jboolean) (g_engine && g_engine->loadKeymap(str));
+}
+
+JNIEXPORT void JNICALL
+Java_com_amsynth_enhanced_AmsynthEngine_nativeResetTuning(JNIEnv *, jobject) {
+	if (g_engine) g_engine->resetTuning();
 }
 
 } // extern "C"

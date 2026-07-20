@@ -50,6 +50,11 @@ object AmsynthEngine {
     external fun nativeGetState(): String
     external fun nativeApplyState(state: String): FloatArray?
 
+    // Microtuning: load a Scala scale (.scl) / keyboard map (.kbm) string, or reset to 12-TET.
+    external fun nativeLoadScale(scl: String): Boolean
+    external fun nativeLoadKeymap(kbm: String): Boolean
+    external fun nativeResetTuning()
+
     data class ParamInfo(
         val index: Int,
         val name: String,

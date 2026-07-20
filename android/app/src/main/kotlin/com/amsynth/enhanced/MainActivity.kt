@@ -89,7 +89,33 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class Sheet { NONE, PRESETS, BANKS }
+private enum class Sheet { NONE, PRESETS, BANKS, TUNING }
+
+// A bundled Scala scale (assets/tunings/<file>).
+private data class Tuning(val file: String, val name: String)
+
+private val TUNINGS = listOf(
+    Tuning("just_major.scl", "Just Intonation (Major)"),
+    Tuning("just_diatonic.scl", "Just Diatonic (Ptolemy)"),
+    Tuning("pythagorean.scl", "Pythagorean"),
+    Tuning("meantone_quarter.scl", "1/4-comma Meantone"),
+    Tuning("werckmeister3.scl", "Werckmeister III"),
+    Tuning("kirnberger3.scl", "Kirnberger III"),
+    Tuning("harmonic.scl", "Harmonic Series (8-16)"),
+    Tuning("05edo.scl", "5-EDO (Slendro-like)"),
+    Tuning("06edo.scl", "Whole Tone (6-EDO)"),
+    Tuning("07edo.scl", "7-EDO"),
+    Tuning("19edo.scl", "19-EDO"),
+    Tuning("22edo.scl", "22-EDO"),
+    Tuning("24edo.scl", "24-EDO (Quarter Tones)"),
+    Tuning("31edo.scl", "31-EDO"),
+    Tuning("41edo.scl", "41-EDO"),
+    Tuning("53edo.scl", "53-EDO"),
+    Tuning("bohlen_pierce.scl", "Bohlen-Pierce (13-ED3)"),
+    Tuning("carlos_alpha.scl", "Wendy Carlos Alpha"),
+    Tuning("carlos_beta.scl", "Wendy Carlos Beta"),
+    Tuning("carlos_gamma.scl", "Wendy Carlos Gamma"),
+)
 
 // One preset in the cross-bank searchable library.
 private data class LibEntry(
@@ -162,6 +188,7 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
     var library by remember { mutableStateOf<List<LibEntry>>(emptyList()) }
     var query by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("All") }
+    var currentTuning by remember { mutableStateOf("12-TET") }
 
     fun refreshFrom(vals: FloatArray) {
         vals.forEachIndexed { i, v -> if (i < values.size) values[i].floatValue = v }
@@ -253,6 +280,24 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
             }
         }
     }
+    val scaleLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            val txt = context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+            if (txt != null && AmsynthEngine.nativeLoadScale(txt)) {
+                currentTuning = uri.lastPathSegment?.substringAfterLast('/') ?: "Custom .scl"
+            }
+        }
+    }
+    val keymapLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            val txt = context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+            if (txt != null) AmsynthEngine.nativeLoadKeymap(txt)
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -315,6 +360,10 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                         DropdownMenuItem(text = { Text("Load sound…") }, onClick = {
                             showMenu = false
                             loadLauncher.launch(arrayOf("*/*"))
+                        })
+                        DropdownMenuItem(text = { Text("Tuning…") }, onClick = {
+                            showMenu = false
+                            sheet = Sheet.TUNING
                         })
                         DropdownMenuItem(text = { Text("All notes off") }, onClick = {
                             showMenu = false
@@ -418,6 +467,53 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                                     .fillMaxWidth()
                                     .clickable { loadBank(file); closing() }
                                     .padding(horizontal = 20.dp, vertical = 12.dp),
+                            )
+                        }
+                    }
+                    Sheet.TUNING -> LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                        item {
+                            Text(
+                                "Tuning — current: $currentTuning",
+                                color = Color(0xFFE0A43B), fontSize = 13.sp,
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                            )
+                            Text(
+                                "12-TET (default)",
+                                color = if (currentTuning == "12-TET") Color(0xFFE0A43B) else Color(0xFFE7EEF0),
+                                fontSize = 16.sp,
+                                modifier = Modifier.fillMaxWidth()
+                                    .clickable { AmsynthEngine.nativeResetTuning(); currentTuning = "12-TET"; closing() }
+                                    .padding(horizontal = 20.dp, vertical = 10.dp),
+                            )
+                            Text(
+                                "Load .scl file…", color = Color(0xFFB9C6CC), fontSize = 15.sp,
+                                modifier = Modifier.fillMaxWidth()
+                                    .clickable { scaleLauncher.launch(arrayOf("*/*")); closing() }
+                                    .padding(horizontal = 20.dp, vertical = 10.dp),
+                            )
+                            Text(
+                                "Load .kbm keyboard map…", color = Color(0xFFB9C6CC), fontSize = 15.sp,
+                                modifier = Modifier.fillMaxWidth()
+                                    .clickable { keymapLauncher.launch(arrayOf("*/*")); closing() }
+                                    .padding(horizontal = 20.dp, vertical = 10.dp),
+                            )
+                            Text(
+                                "Scala library", color = Color(0xFF8AA0A8), fontSize = 11.sp,
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                            )
+                        }
+                        items(TUNINGS) { t ->
+                            Text(
+                                t.name,
+                                color = if (currentTuning == t.name) Color(0xFFE0A43B) else Color(0xFFE7EEF0),
+                                fontSize = 16.sp,
+                                modifier = Modifier.fillMaxWidth()
+                                    .clickable {
+                                        val txt = context.assets.open("tunings/${t.file}").readBytes().decodeToString()
+                                        if (AmsynthEngine.nativeLoadScale(txt)) currentTuning = t.name
+                                        closing()
+                                    }
+                                    .padding(horizontal = 20.dp, vertical = 10.dp),
                             )
                         }
                     }
