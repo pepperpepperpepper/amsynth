@@ -1,5 +1,0 @@
-Scala tuning library:
-- Menu > Tuning opens a microtuning library: 20 bundled Scala scales (EDOs,
-  just intonation, Pythagorean, meantone, Werckmeister/Kirnberger, harmonic,
-  Bohlen-Pierce, Wendy Carlos), plus 12-TET reset.
-- Load your own .scl scale and .kbm keyboard map via the file picker.
