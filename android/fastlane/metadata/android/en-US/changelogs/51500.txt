@@ -1,0 +1,4 @@
+Instant Scala library:
+- The 5401-scale library now loads instantly from a precomputed index bundled
+  with the app, instead of being rebuilt on every boot (which could hang at
+  "Loading Scala library…" / 0 scales). This also fixes a startup failure.
