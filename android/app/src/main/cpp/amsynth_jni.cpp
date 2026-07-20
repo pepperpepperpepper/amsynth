@@ -154,6 +154,8 @@ public:
 	bool loadScale(const std::string &s)  { return synth_ && synth_->loadTuningScaleFromString(s.c_str()) == 0; }
 	bool loadKeymap(const std::string &s) { return synth_ && synth_->loadTuningKeymapFromString(s.c_str()) == 0; }
 	void resetTuning() { if (synth_) { synth_->loadTuningScaleFromString(""); synth_->loadTuningKeymapFromString(""); } }
+	// The MIDI note that becomes the scale's 1/1 (the tuning root / tonic).
+	void setTuningRoot(int note) { if (synth_) synth_->setProperty("tuning_root", std::to_string(note).c_str()); }
 
 	// Reading a parameter races the audio thread by a single float; harmless and
 	// only used to seed the UI.
@@ -436,6 +438,11 @@ Java_com_amsynth_enhanced_AmsynthEngine_nativeLoadKeymap(JNIEnv *env, jobject, j
 JNIEXPORT void JNICALL
 Java_com_amsynth_enhanced_AmsynthEngine_nativeResetTuning(JNIEnv *, jobject) {
 	if (g_engine) g_engine->resetTuning();
+}
+
+JNIEXPORT void JNICALL
+Java_com_amsynth_enhanced_AmsynthEngine_nativeSetTuningRoot(JNIEnv *, jobject, jint note) {
+	if (g_engine) g_engine->setTuningRoot(note);
 }
 
 } // extern "C"

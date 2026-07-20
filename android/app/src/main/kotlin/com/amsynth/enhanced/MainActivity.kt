@@ -128,6 +128,10 @@ private fun bankDisplayName(file: String): String = when {
         .replace("PatriksBank", "Patrik's Bank ")
 }
 
+private val NOTE_NAMES = arrayOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+// Scientific pitch notation, MIDI 60 = C4 (A4 = 69 = 440 Hz).
+private fun noteName(midi: Int): String = "${NOTE_NAMES[((midi % 12) + 12) % 12]}${midi / 12 - 1}"
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
@@ -165,6 +169,7 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
     var currentTuning by remember { mutableStateOf("12-TET") }
     var scales by remember { mutableStateOf<List<ScalaLibrary.Scale>>(emptyList()) }
     var tuningQuery by remember { mutableStateOf("") }
+    val rootNote = remember { mutableIntStateOf(60) } // scale's 1/1 (tonic), default C4
 
     fun refreshFrom(vals: FloatArray) {
         vals.forEachIndexed { i, v -> if (i < values.size) values[i].floatValue = v }
@@ -267,6 +272,7 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
         if (uri != null) {
             val txt = context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
             if (txt != null && AmsynthEngine.nativeLoadScale(txt)) {
+                AmsynthEngine.nativeSetTuningRoot(rootNote.intValue)
                 currentTuning = uri.lastPathSegment?.substringAfterLast('/') ?: "Custom .scl"
             }
         }
@@ -328,6 +334,10 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                     "Presets", color = Color(0xFFE0A43B), fontSize = 14.sp,
                     modifier = Modifier.clickable { sheet = Sheet.PRESETS }.padding(horizontal = 8.dp, vertical = 3.dp),
                 )
+                Text(
+                    "Tuning", color = Color(0xFFE0A43B), fontSize = 14.sp,
+                    modifier = Modifier.clickable { sheet = Sheet.TUNING }.padding(horizontal = 8.dp, vertical = 3.dp),
+                )
                 Box {
                     Text(
                         "Menu", color = Color(0xFFE0A43B), fontSize = 14.sp,
@@ -341,10 +351,6 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                         DropdownMenuItem(text = { Text("Load sound…") }, onClick = {
                             showMenu = false
                             loadLauncher.launch(arrayOf("*/*"))
-                        })
-                        DropdownMenuItem(text = { Text("Tuning…") }, onClick = {
-                            showMenu = false
-                            sheet = Sheet.TUNING
                         })
                         DropdownMenuItem(text = { Text("All notes off") }, onClick = {
                             showMenu = false
@@ -477,7 +483,11 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                                     color = if (currentTuning == "12-TET") Color(0xFFE0A43B) else Color(0xFFE7EEF0),
                                     fontSize = 16.sp,
                                     modifier = Modifier.fillMaxWidth()
-                                        .clickable { AmsynthEngine.nativeResetTuning(); currentTuning = "12-TET"; closing() }
+                                        .clickable {
+                                            AmsynthEngine.nativeResetTuning()
+                                            AmsynthEngine.nativeSetTuningRoot(rootNote.intValue)
+                                            currentTuning = "12-TET"; closing()
+                                        }
                                         .padding(horizontal = 20.dp, vertical = 10.dp),
                                 )
                                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp)) {
@@ -490,6 +500,39 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                                         "Load .kbm…", color = Color(0xFFB9C6CC), fontSize = 14.sp,
                                         modifier = Modifier.clickable { keymapLauncher.launch(arrayOf("*/*")); closing() }
                                             .padding(vertical = 4.dp),
+                                    )
+                                }
+                                // Root note (tonic): the MIDI note the scale's 1/1 is anchored to.
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text("Root note (tonic):", color = Color(0xFFB9C6CC), fontSize = 14.sp)
+                                    Text(
+                                        "−", color = Color(0xFFE0A43B), fontSize = 20.sp,
+                                        modifier = Modifier
+                                            .clickable {
+                                                if (rootNote.intValue > 0) {
+                                                    rootNote.intValue--
+                                                    AmsynthEngine.nativeSetTuningRoot(rootNote.intValue)
+                                                }
+                                            }
+                                            .padding(horizontal = 14.dp, vertical = 2.dp),
+                                    )
+                                    Text(
+                                        noteName(rootNote.intValue), color = Color(0xFFE7EEF0), fontSize = 15.sp,
+                                        modifier = Modifier.padding(horizontal = 6.dp),
+                                    )
+                                    Text(
+                                        "+", color = Color(0xFFE0A43B), fontSize = 20.sp,
+                                        modifier = Modifier
+                                            .clickable {
+                                                if (rootNote.intValue < 127) {
+                                                    rootNote.intValue++
+                                                    AmsynthEngine.nativeSetTuningRoot(rootNote.intValue)
+                                                }
+                                            }
+                                            .padding(horizontal = 14.dp, vertical = 2.dp),
                                     )
                                 }
                                 Text(
@@ -508,7 +551,10 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                                     modifier = Modifier.fillMaxWidth()
                                         .clickable {
                                             val txt = ScalaLibrary.read(context, s.entry)
-                                            if (txt != null && AmsynthEngine.nativeLoadScale(txt)) currentTuning = s.display
+                                            if (txt != null && AmsynthEngine.nativeLoadScale(txt)) {
+                                                AmsynthEngine.nativeSetTuningRoot(rootNote.intValue)
+                                                currentTuning = s.display
+                                            }
                                             closing()
                                         }
                                         .padding(horizontal = 20.dp, vertical = 9.dp),

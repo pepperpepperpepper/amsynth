@@ -54,6 +54,8 @@ object AmsynthEngine {
     external fun nativeLoadScale(scl: String): Boolean
     external fun nativeLoadKeymap(kbm: String): Boolean
     external fun nativeResetTuning()
+    /** Set the MIDI note that becomes the scale's 1/1 (the tuning root / tonic). */
+    external fun nativeSetTuningRoot(note: Int)
 
     data class ParamInfo(
         val index: Int,

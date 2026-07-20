@@ -1,4 +1,0 @@
-Full Scala scale archive:
-- Menu > Tuning now bundles the complete Huygens-Fokker Scala library —
-  5401 microtonal scales — with a search box. Type to find a scale by name
-  or description; tap to load. 12-TET reset and .scl/.kbm import still there.

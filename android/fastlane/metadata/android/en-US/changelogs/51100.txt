@@ -1,0 +1,4 @@
+Tuning is now a top-level button, with a root note:
+- Tuning moved out of the Menu to a top-level button next to Presets.
+- Choose the root note (tonic) — the MIDI note the scale's 1/1 is anchored
+  to — right in the tuning panel.
