@@ -176,7 +176,7 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
         topBar = {
             TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF1B2226),
+                    containerColor = Color(0xFF1E1E1E),
                     titleContentColor = Color(0xFFE0A43B),
                 ),
                 title = { Text(soundName, fontSize = 17.sp, maxLines = 1) },
@@ -214,7 +214,9 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(Color(0xFF222B30)),
+                // Neutral near-black matched to the skin so the letterbox around
+                // the 3:2 panel blends into the instrument instead of framing it.
+                .background(Color(0xFF262626)),
         ) {
             // The native skin panel fills the space above the keyboard.
             SkinView(
@@ -223,24 +225,42 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                 modifier = Modifier.weight(1f).fillMaxWidth().padding(4.dp),
             )
 
+            // Compact octave strip (Panic lives in the Menu as "All notes off").
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 2.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(onClick = { if (octave.intValue > -3) octave.intValue-- }) { Text("Oct −") }
-                Text("C${3 + octave.intValue}", color = Color(0xFFE7EEF0), fontSize = 14.sp)
-                TextButton(onClick = { if (octave.intValue < 3) octave.intValue++ }) { Text("Oct +") }
-                Spacer(Modifier.width(8.dp))
-                TextButton(onClick = { AmsynthEngine.nativeAllNotesOff() }) { Text("Panic") }
+                Text(
+                    "OCT −",
+                    color = Color(0xFFE0A43B),
+                    fontSize = 14.sp,
+                    modifier = Modifier
+                        .clickable { if (octave.intValue > -3) octave.intValue-- }
+                        .padding(vertical = 6.dp, horizontal = 6.dp),
+                )
+                Text(
+                    "C${3 + octave.intValue}",
+                    color = Color(0xFFB9C6CC),
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                )
+                Text(
+                    "OCT +",
+                    color = Color(0xFFE0A43B),
+                    fontSize = 14.sp,
+                    modifier = Modifier
+                        .clickable { if (octave.intValue < 3) octave.intValue++ }
+                        .padding(vertical = 6.dp, horizontal = 6.dp),
+                )
             }
 
             Keyboard(
                 baseNote = 48 + octave.intValue * 12,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(140.dp)
+                    .height(112.dp)
                     .padding(horizontal = 10.dp)
-                    .padding(bottom = 8.dp),
+                    .padding(bottom = 6.dp),
             )
         }
 
