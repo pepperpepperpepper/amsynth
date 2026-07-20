@@ -43,6 +43,8 @@ object AmsynthEngine {
     external fun nativeGetPresetName(index: Int): String
     external fun nativeGetPresetValues(index: Int): FloatArray
     external fun nativeSelectPreset(index: Int)
+    /** Names of every slot in a bank buffer (empty string for empty slots); does not change the live bank. */
+    external fun nativeListBankPresets(data: ByteArray): Array<String>
 
     // Save / load a single sound (preset-state string).
     external fun nativeGetState(): String

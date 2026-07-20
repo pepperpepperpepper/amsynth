@@ -357,6 +357,29 @@ Java_com_amsynth_enhanced_AmsynthEngine_nativeSelectPreset(JNIEnv *, jobject, ji
 		g_engine->applyPreset(g_bank->getPreset(i));
 }
 
+// Enumerate a bank's preset names WITHOUT touching the live bank (g_bank) — used
+// to build the cross-bank searchable library. Parses into a throwaway
+// PresetController and returns all 128 slot names (empty string for empty slots).
+JNIEXPORT jobjectArray JNICALL
+Java_com_amsynth_enhanced_AmsynthEngine_nativeListBankPresets(JNIEnv *env, jobject, jbyteArray data) {
+	const jsize len = env->GetArrayLength(data);
+	std::string s((size_t) len, '\0');
+	if (len > 0)
+		env->GetByteArrayRegion(data, 0, len, reinterpret_cast<jbyte *>(&s[0]));
+	jclass strCls = env->FindClass("java/lang/String");
+	jstring empty = env->NewStringUTF("");
+	jobjectArray arr = env->NewObjectArray(PresetController::kNumPresets, strCls, empty);
+	PresetController pc;
+	if (pc.loadPresetsFromString(s) == 0) {
+		for (int i = 0; i < PresetController::kNumPresets; i++) {
+			jstring name = env->NewStringUTF(pc.getPreset(i).getName().c_str());
+			env->SetObjectArrayElement(arr, i, name);
+			env->DeleteLocalRef(name);
+		}
+	}
+	return arr;
+}
+
 // --- save / load a sound ---------------------------------------------------
 
 JNIEXPORT jstring JNICALL

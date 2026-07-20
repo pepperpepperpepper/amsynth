@@ -1,0 +1,5 @@
+Searchable preset library:
+- Presets now opens a searchable library across all bundled banks, with
+  category filters (Bass, Lead, Pad, Keys, Strings, Brass, Pluck, Perc, FX).
+- Type to search by name; tap a category chip to filter; each result shows
+  its bank and tags.

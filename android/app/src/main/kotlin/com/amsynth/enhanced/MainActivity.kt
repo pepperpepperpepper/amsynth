@@ -24,12 +24,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -62,7 +65,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Playable front-end for the native amsynth engine. The control panel is the
@@ -85,6 +90,36 @@ class MainActivity : ComponentActivity() {
 }
 
 private enum class Sheet { NONE, PRESETS, BANKS }
+
+// One preset in the cross-bank searchable library.
+private data class LibEntry(
+    val bank: String,
+    val bankName: String,
+    val index: Int,
+    val name: String,
+    val cats: List<String>,
+)
+
+private val CATEGORY_ORDER =
+    listOf("All", "Bass", "Lead", "Pad", "Keys", "Strings", "Brass", "Pluck", "Perc", "FX", "Other")
+
+// Derive category tags from a preset name (amsynth presets carry no metadata).
+private fun categoriesFor(name: String): List<String> {
+    val n = name.lowercase()
+    fun has(vararg k: String) = k.any { n.contains(it) }
+    val c = mutableListOf<String>()
+    if (has("bass", "sub ")) c.add("Bass")
+    if (has("lead", "solo")) c.add("Lead")
+    if (has("pad", "warm", "ambient", "atmos")) c.add("Pad")
+    if (has("string", "violin", "cello", "orchestr")) c.add("Strings")
+    if (has("brass", "horn", "trumpet", "tuba", "sax", "trombone")) c.add("Brass")
+    if (has("piano", "rhodes", "clav", "organ", "key", "electric p", "harpsichord")) c.add("Keys")
+    if (has("pluck", "guitar", "harp", "bell", "mallet", "marimba", "vibe")) c.add("Pluck")
+    if (has("drum", "perc", "kick", "snare", "tom ", "hat", "clap", "cymbal", "conga")) c.add("Perc")
+    if (has("fx", "noise", "sweep", "wind", "effect", "sfx", "zap", "laser", "drone")) c.add("FX")
+    if (c.isEmpty()) c.add("Other")
+    return c
+}
 
 private fun bankDisplayName(file: String): String = when {
     file.startsWith("amsynth_factory") -> "Factory"
@@ -123,6 +158,11 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
     var pinMode by remember { mutableStateOf(false) }
     val pinned = remember { mutableStateListOf(11, 9) } // Cutoff, Resonance by default
 
+    // Cross-bank searchable preset library.
+    var library by remember { mutableStateOf<List<LibEntry>>(emptyList()) }
+    var query by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf("All") }
+
     fun refreshFrom(vals: FloatArray) {
         vals.forEachIndexed { i, v -> if (i < values.size) values[i].floatValue = v }
     }
@@ -143,7 +183,35 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
         }
     }
 
+    // Select any preset from the library, loading its bank first if needed.
+    fun selectFromLibrary(e: LibEntry) {
+        if (e.bank != currentBank) {
+            val bytes = context.assets.open("banks/${e.bank}").readBytes()
+            if (AmsynthEngine.nativeLoadBank(bytes) > 0) {
+                currentBank = e.bank
+                presets = AmsynthEngine.presets()
+            }
+        }
+        selectPreset(e.index)
+    }
+
     LaunchedEffect(Unit) { loadBank(currentBank) }
+
+    // Build the cross-bank library index once (off the main thread). Uses a
+    // throwaway parser, so it never disturbs the live bank.
+    LaunchedEffect(banks) {
+        val lib = withContext(Dispatchers.Default) {
+            val out = mutableListOf<LibEntry>()
+            for (f in banks) {
+                val names = AmsynthEngine.nativeListBankPresets(context.assets.open("banks/$f").readBytes())
+                names.forEachIndexed { i, nm ->
+                    if (nm.isNotBlank()) out.add(LibEntry(f, bankDisplayName(f), i, nm, categoriesFor(nm)))
+                }
+            }
+            out
+        }
+        library = lib
+    }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -353,18 +421,58 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                             )
                         }
                     }
-                    else -> LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                        items(presets) { preset ->
-                            val selected = preset.index == currentPreset.intValue
-                            Text(
-                                preset.name,
-                                color = if (selected) Color(0xFFE0A43B) else Color(0xFFE7EEF0),
-                                fontSize = 16.sp,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { selectPreset(preset.index); closing() }
-                                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                            )
+                    else -> {
+                        val present = CATEGORY_ORDER.filter { c -> c == "All" || library.any { e -> c in e.cats } }
+                        val filtered = library.filter {
+                            (query.isBlank() || it.name.contains(query, ignoreCase = true)) &&
+                                (category == "All" || category in it.cats)
+                        }
+                        LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                            item {
+                                OutlinedTextField(
+                                    value = query,
+                                    onValueChange = { query = it },
+                                    placeholder = { Text("Search presets") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                                )
+                                LazyRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp)) {
+                                    items(present) { c ->
+                                        FilterChip(
+                                            selected = category == c,
+                                            onClick = { category = c },
+                                            label = { Text(c) },
+                                            modifier = Modifier.padding(horizontal = 4.dp),
+                                        )
+                                    }
+                                }
+                                Text(
+                                    "${filtered.size} presets",
+                                    color = Color(0xFF8AA0A8),
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp),
+                                )
+                            }
+                            items(filtered) { e ->
+                                val selected = e.bank == currentBank && e.index == currentPreset.intValue
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { selectFromLibrary(e); closing() }
+                                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                                ) {
+                                    Text(
+                                        e.name,
+                                        color = if (selected) Color(0xFFE0A43B) else Color(0xFFE7EEF0),
+                                        fontSize = 16.sp,
+                                    )
+                                    Text(
+                                        "${e.bankName}  ·  ${e.cats.joinToString(", ")}",
+                                        color = Color(0xFF8AA0A8),
+                                        fontSize = 11.sp,
+                                    )
+                                }
+                            }
                         }
                     }
                 }

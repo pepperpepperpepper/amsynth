@@ -15,8 +15,8 @@ android {
         applicationId = "com.amsynth.enhanced"
         minSdk = 24
         targetSdk = 34
-        versionCode = 50700
-        versionName = "5.7"
+        versionCode = 50800
+        versionName = "5.8"
 
         ndk {
             // arm64 is the Pi-class / modern-phone target; the rest are for

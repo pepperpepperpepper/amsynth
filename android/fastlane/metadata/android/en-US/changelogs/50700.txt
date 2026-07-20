@@ -1,3 +1,0 @@
-Console fills the screen:
-- The full console now scales to the full width (big, edge-to-edge knobs)
-  and scrolls vertically, instead of sitting letterboxed in the middle.
