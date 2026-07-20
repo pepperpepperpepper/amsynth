@@ -23,11 +23,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.stickyHeader
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -130,7 +128,7 @@ private fun bankDisplayName(file: String): String = when {
         .replace("PatriksBank", "Patrik's Bank ")
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
     val context = LocalContext.current
@@ -459,7 +457,7 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                                 it.entry.contains(tuningQuery, ignoreCase = true)
                         }
                         LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                            stickyHeader {
+                            item {
                                 OutlinedTextField(
                                     value = tuningQuery,
                                     onValueChange = { tuningQuery = it },
@@ -467,11 +465,8 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                                     singleLine = true,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .background(Color(0xFF1B2226))
                                         .padding(horizontal = 16.dp, vertical = 6.dp),
                                 )
-                            }
-                            item {
                                 Text(
                                     "Current: $currentTuning",
                                     color = Color(0xFF8AA0A8), fontSize = 11.sp,
