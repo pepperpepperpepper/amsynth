@@ -576,9 +576,7 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                                     modifier = Modifier.fillMaxWidth()
                                         .clickable {
                                             val txt = ScalaLibrary.read(context, s.entry)
-                                            val ok = txt != null && AmsynthEngine.nativeLoadScale(txt)
-                                            android.util.Log.i("amsynthdbg", "load ${s.entry}: txtLen=${txt?.length} ok=$ok")
-                                            if (ok) {
+                                            if (txt != null && AmsynthEngine.nativeLoadScale(txt)) {
                                                 AmsynthEngine.nativeSetTuningRoot(rootNote.intValue)
                                                 currentTuning = s.display
                                             }
