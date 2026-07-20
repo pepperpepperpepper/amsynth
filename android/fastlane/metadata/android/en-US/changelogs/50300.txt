@@ -1,0 +1,6 @@
+Native skin:
+- The control panel now uses amsynth's actual desktop skin — the same
+  background and film-strip knob/button graphics, at the same layout, so it
+  looks like the desktop synth. Knob positions match the desktop exactly.
+- Drag a knob to change it; tap a selector (waveform, filter type, keyboard
+  mode, …) to cycle it.

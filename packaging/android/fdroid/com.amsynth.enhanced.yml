@@ -38,9 +38,9 @@ Description: |
 
   Features:
 
-  * The full amsynth synthesis engine, presented as a desktop-style panel of
-    rotary knobs grouped into oscillator, mixer, LFO, filter, envelope, effects
-    and master sections.
+  * The full amsynth synthesis engine, presented with amsynth's own desktop
+    skin — the same panel background and film-strip knob/button graphics at the
+    same layout as the desktop synth.
   * All the factory preset banks (Factory, Brian's, Patrik's), with a bank and
     preset browser.
   * A sweepable multi-touch keyboard with octave shift.
@@ -50,6 +50,6 @@ Description: |
 AuthorName: amsynth
 AutoUpdateMode: None
 UpdateCheckMode: None
-CurrentVersion: "5.2"
-CurrentVersionCode: 50200
+CurrentVersion: "5.3"
+CurrentVersionCode: 50300
 Builds: []

@@ -30,6 +30,13 @@ object AmsynthEngine {
     external fun nativeGetParameterStep(index: Int): Float
     external fun nativeGetParameterDisplay(index: Int, value: Float): String
 
+    // Law-aware value<->[0,1] mapping (for the skin's knob film-strip frames).
+    external fun nativeNormalize(index: Int, value: Float): Float
+    external fun nativeDenormalize(index: Int, norm: Float): Float
+
+    fun normalize(index: Int, value: Float): Float = nativeNormalize(index, value)
+    fun denormalize(index: Int, norm: Float): Float = nativeDenormalize(index, norm)
+
     // Preset bank (loaded from a bundled asset; independent of the audio stream).
     external fun nativeLoadBank(data: ByteArray): Int
     external fun nativeGetPresetCount(): Int

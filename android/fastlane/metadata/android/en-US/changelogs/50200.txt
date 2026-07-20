@@ -1,6 +1,0 @@
-Knob UI and the full preset library:
-- Redesigned to match the desktop panel: rotary knobs grouped into
-  oscillator, mixer, LFO, filter, envelope, effects and master sections,
-  each showing its value the way the desktop does.
-- All 28 factory banks now ship (Factory, Brian's, Patrik's) — pick a bank
-  and browse its presets.

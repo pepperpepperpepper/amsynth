@@ -282,6 +282,25 @@ Java_com_amsynth_enhanced_AmsynthEngine_nativeGetParameterDisplay(JNIEnv *env, j
 	return env->NewStringUTF(buf);
 }
 
+// Law-aware value<->[0,1] mapping (matches the desktop skin's knob frame math).
+// A temporary Parameter carries the per-parameter law/step, so the skin picks
+// exactly the same film-strip frame the desktop GUI would.
+JNIEXPORT jfloat JNICALL
+Java_com_amsynth_enhanced_AmsynthEngine_nativeNormalize(JNIEnv *, jobject, jint index, jfloat value) {
+	if (index < 0 || index >= kAmsynthParameterCount) return 0.f;
+	Parameter p((Param) index);
+	p.setValue(value);
+	return p.getNormalisedValue();
+}
+
+JNIEXPORT jfloat JNICALL
+Java_com_amsynth_enhanced_AmsynthEngine_nativeDenormalize(JNIEnv *, jobject, jint index, jfloat norm) {
+	if (index < 0 || index >= kAmsynthParameterCount) return 0.f;
+	Parameter p((Param) index);
+	p.setNormalisedValue(norm);
+	return p.getValue();
+}
+
 // --- presets / banks -------------------------------------------------------
 
 // Parse a bank file (bytes) into g_bank. Returns the number of non-empty

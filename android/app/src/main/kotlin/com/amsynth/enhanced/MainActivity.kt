@@ -8,23 +8,17 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,7 +34,6 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableFloatState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -48,35 +41,26 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import kotlinx.coroutines.launch
-import kotlin.math.cos
-import kotlin.math.round
-import kotlin.math.sin
 
 /**
- * Playable front-end for the native amsynth engine, styled after the desktop
- * panel: rotary knobs grouped into the same sections (oscillators, mixer, LFO,
- * filter, envelopes, effects, master), a bank/preset browser, a sweepable
- * multi-touch keyboard, octave shift, and save/load of sounds. All DSP and
- * audio output are native (Oboe); this activity only sends control events.
+ * Playable front-end for the native amsynth engine. The control panel is the
+ * actual desktop skin (see [SkinView]); below it are octave/panic controls and
+ * a sweepable multi-touch keyboard. The top bar hosts the bank/preset browsers
+ * and save/load. All DSP and audio output are native (Oboe).
  */
 class MainActivity : ComponentActivity() {
 
@@ -91,22 +75,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
-// A control panel: a title and the (paramIndex -> label) knobs it contains. The
-// grouping and order mirror the desktop amsynth layout.
-private data class Panel(val title: String, val items: List<Pair<Int, String>>)
-
-private val PANELS = listOf(
-    Panel("Oscillator 1", listOf(4 to "Waveform", 23 to "Shape")),
-    Panel("Oscillator 2", listOf(13 to "Waveform", 24 to "Shape", 17 to "Octave", 33 to "Semitone", 12 to "Detune", 30 to "Sync")),
-    Panel("Mixer", listOf(18 to "Osc Balance", 22 to "Ring Mod")),
-    Panel("LFO", listOf(16 to "Waveform", 15 to "Speed", 36 to "Routing", 19 to "To Pitch", 20 to "To Filter", 21 to "To Amp")),
-    Panel("Filter", listOf(34 to "Type", 35 to "Slope", 11 to "Cutoff", 9 to "Resonance", 10 to "Env Amount", 37 to "Key Track", 38 to "Key Vel")),
-    Panel("Filter Envelope", listOf(5 to "Attack", 6 to "Decay", 7 to "Sustain", 8 to "Release")),
-    Panel("Amp Envelope", listOf(0 to "Attack", 1 to "Decay", 2 to "Sustain", 3 to "Release", 39 to "Velocity")),
-    Panel("Effects", listOf(29 to "Distortion", 25 to "Reverb Size", 26 to "Reverb Damp", 27 to "Reverb Wet", 28 to "Reverb Width")),
-    Panel("Master", listOf(14 to "Volume", 31 to "Portamento", 40 to "Porta Mode", 32 to "Keyboard")),
-)
 
 private enum class Sheet { NONE, PRESETS, BANKS }
 
@@ -124,8 +92,7 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
 
-    // One value state per parameter, so dragging a knob only recomposes that
-    // knob (not all 41). Seeded from the engine defaults.
+    // One value state per parameter; the skin reads these to pick knob frames.
     val values = remember { params.map { mutableFloatStateOf(it.default) } }
 
     val banks = remember {
@@ -162,10 +129,8 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
         }
     }
 
-    // Load the default (factory) bank once, seed the UI, apply the first sound.
     LaunchedEffect(Unit) { loadBank(currentBank) }
 
-    // Run audio only while foregrounded; re-apply the current sound on resume.
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
@@ -184,7 +149,6 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Save / load a sound through the system file picker (SAF).
     val saveLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri ->
@@ -252,19 +216,13 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                 .padding(padding)
                 .background(Color(0xFF222B30)),
         ) {
-            // Knob panels scroll above the keyboard.
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 10.dp),
-            ) {
-                PANELS.forEach { panel -> PanelView(panel, params, values) }
-                Spacer(Modifier.height(8.dp))
-            }
+            // The native skin panel fills the space above the keyboard.
+            SkinView(
+                params = params,
+                values = values,
+                modifier = Modifier.weight(1f).fillMaxWidth().padding(4.dp),
+            )
 
-            // Octave / panic row.
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -280,7 +238,7 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                 baseNote = 48 + octave.intValue * 12,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(150.dp)
+                    .height(140.dp)
                     .padding(horizontal = 10.dp)
                     .padding(bottom = 8.dp),
             )
@@ -327,117 +285,6 @@ private fun SynthScreen(params: List<AmsynthEngine.ParamInfo>) {
                 }
             }
         }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun PanelView(
-    panel: Panel,
-    params: List<AmsynthEngine.ParamInfo>,
-    values: List<MutableFloatState>,
-) {
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Text(
-            panel.title.uppercase(),
-            color = Color(0xFFE0A43B),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 2.dp, bottom = 2.dp),
-        )
-        FlowRow(modifier = Modifier.fillMaxWidth()) {
-            panel.items.forEach { (index, label) ->
-                Knob(param = params[index], label = label, value = values[index].floatValue) { v ->
-                    values[index].floatValue = v
-                    AmsynthEngine.nativeSetParameter(index, v)
-                }
-            }
-        }
-    }
-}
-
-/**
- * A rotary knob. Drag up/down to change the value; discrete parameters snap to
- * their step. The label below shows the value formatted exactly like the desktop
- * GUI ("Saw", "24 dB/oct", …). The knob consumes its touch from the initial
- * press, so dragging a knob never scrolls the panel behind it.
- */
-@Composable
-private fun Knob(
-    param: AmsynthEngine.ParamInfo,
-    label: String,
-    value: Float,
-    onValueChange: (Float) -> Unit,
-) {
-    val cur by rememberUpdatedState(value)
-    val cb by rememberUpdatedState(onValueChange)
-    val span = (param.max - param.min).let { if (it == 0f) 1f else it }
-    val frac = ((value - param.min) / span).coerceIn(0f, 1f)
-
-    Column(
-        modifier = Modifier.width(74.dp).padding(4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            label,
-            color = Color(0xFFB9C6CC),
-            fontSize = 10.sp,
-            maxLines = 1,
-            textAlign = TextAlign.Center,
-        )
-        Canvas(
-            modifier = Modifier
-                .size(46.dp)
-                .padding(top = 2.dp, bottom = 2.dp)
-                .pointerInput(param.index) {
-                    awaitPointerEventScope {
-                        while (true) {
-                            val down = awaitFirstDown(requireUnconsumed = false)
-                            down.consume()
-                            var prevY = down.position.y
-                            while (true) {
-                                val ev = awaitPointerEvent()
-                                val ch = ev.changes.firstOrNull { it.id == down.id } ?: break
-                                if (!ch.pressed) { ch.consume(); break }
-                                val dy = ch.position.y - prevY
-                                prevY = ch.position.y
-                                var nv = (cur + (-dy / 250f) * span).coerceIn(param.min, param.max)
-                                if (param.step > 0f) {
-                                    nv = (param.min + round((nv - param.min) / param.step) * param.step)
-                                        .coerceIn(param.min, param.max)
-                                }
-                                cb(nv)
-                                ch.consume()
-                            }
-                        }
-                    }
-                },
-        ) {
-            val sw = 5.dp.toPx()
-            val d = size.minDimension
-            val tl = Offset((size.width - d) / 2 + sw / 2, (size.height - d) / 2 + sw / 2)
-            val arcSize = Size(d - sw, d - sw)
-            drawArc(Color(0xFF3A474E), 135f, 270f, false, tl, arcSize, style = Stroke(sw, cap = StrokeCap.Round))
-            drawArc(Color(0xFFE0A43B), 135f, 270f * frac, false, tl, arcSize, style = Stroke(sw, cap = StrokeCap.Round))
-            val ang = Math.toRadians(135.0 + 270.0 * frac)
-            val cx = size.width / 2
-            val cy = size.height / 2
-            val r = d / 2 - sw
-            drawLine(
-                Color(0xFFEEF3F4),
-                Offset(cx, cy),
-                Offset(cx + (r * cos(ang)).toFloat(), cy + (r * sin(ang)).toFloat()),
-                strokeWidth = 2.5.dp.toPx(),
-                cap = StrokeCap.Round,
-            )
-        }
-        Text(
-            AmsynthEngine.display(param.index, value),
-            color = Color(0xFFE7EEF0),
-            fontSize = 10.sp,
-            maxLines = 1,
-            textAlign = TextAlign.Center,
-        )
     }
 }
 
